@@ -1,0 +1,8 @@
+{
+  "original_and_refactored_one_way_diagnostics_identical": true,
+  "raw_timing_arithmetic_and_medians_verified": true,
+  "known_leaf_counts_verified": true,
+  "diagnostic_accounting_verified": true,
+  "comparison_rows": 16,
+  "timing_spread": "Quartiles are sample spread, not confidence intervals."
+}

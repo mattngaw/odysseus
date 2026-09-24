@@ -1,0 +1,202 @@
+{
+  "captured_at_utc": "2026-09-13T05:35:00.047599+00:00",
+  "working_directory": "/Users/matto/Work/odysseus",
+  "machine": "Apple M2 MacBook Air, 16 GB",
+  "os": {
+    "command": [
+      "sw_vers"
+    ],
+    "exit_code": 0,
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n",
+    "stderr": ""
+  },
+  "rustc": {
+    "command": [
+      "rustc",
+      "-Vv"
+    ],
+    "exit_code": 0,
+    "stdout": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8\n",
+    "stderr": ""
+  },
+  "cargo": {
+    "command": [
+      "cargo",
+      "-V"
+    ],
+    "exit_code": 0,
+    "stdout": "cargo 1.94.0 (85eff7c80 2026-01-15)\n",
+    "stderr": ""
+  },
+  "power_before": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true\n",
+    "stderr": ""
+  },
+  "environment_overrides": {
+    "RUSTFLAGS": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_BUILD_TARGET": null,
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+    "CARGO_PROFILE_RELEASE_LTO": null,
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null
+  },
+  "build_command": "cargo build -p penteconter --release --features perft-experiment --example hash_traversal --example baseline --locked --offline",
+  "controls": {
+    "threads": 1,
+    "cpu_affinity": "not set",
+    "frequency": "not controlled",
+    "background_activity": "not controlled",
+    "cache": "empty table before every sample; warmed code/data",
+    "cache_policy": "direct mapped, always replace, 32 bytes per entry, full u64 key + exact remaining depth; true Zobrist collisions unresolved",
+    "allocation": "one cache allocated before measurements; clear separately timed; total = clear + traversal",
+    "instrumentation": "separate untimed pass; timed specialization has counters compiled out"
+  },
+  "no_hash_source_identity": "../2026-09-12-m2/source_files.sha256",
+  "eager_original_source_identity": "../2026-09-13-m2-incremental/source_files.sha256",
+  "validation": {
+    "debug": {
+      "passed_tests": 114,
+      "exit_code": 0
+    },
+    "release": {
+      "passed_tests": 114,
+      "exit_code": 0
+    }
+  },
+  "runs": [
+    {
+      "report": "no-hash-before.txt",
+      "command": [
+        "target/experiments/hash-traversal/no-hash-baseline",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "671562cc1379889c5de78114aeeb6ad272b495192f17c108d760f3fd6ef765dd",
+      "start_utc": "2026-09-13T05:35:00.213254+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T05:35:10.920320+00:00"
+    },
+    {
+      "report": "eager-original.txt",
+      "command": [
+        "target/experiments/hash-traversal/eager-baseline",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "243621174e0a4f07c7658dc5e0969a1e347ac92464025307efec74b05bedec6d",
+      "start_utc": "2026-09-13T05:35:10.922419+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T05:35:25.029323+00:00"
+    },
+    {
+      "report": "experiment-16mib.txt",
+      "command": [
+        "target/release/examples/hash_traversal",
+        "--warmup",
+        "3",
+        "--samples",
+        "21",
+        "--cache-mib",
+        "16"
+      ],
+      "binary_sha256": "022878a3d29a42cc9410dde695fafc84b6b8519686e9bff139d53c18bdcc0e76",
+      "start_utc": "2026-09-13T05:35:25.031713+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T05:36:22.921173+00:00"
+    },
+    {
+      "report": "eager-current.txt",
+      "command": [
+        "target/release/examples/baseline",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "aa2b2c288a7229f1331865c3364cb1de036e12e48cbbc7fc1c3265c7a18fb6e6",
+      "start_utc": "2026-09-13T05:36:22.923532+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T05:36:36.896601+00:00"
+    },
+    {
+      "report": "no-hash-after.txt",
+      "command": [
+        "target/experiments/hash-traversal/no-hash-baseline",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "671562cc1379889c5de78114aeeb6ad272b495192f17c108d760f3fd6ef765dd",
+      "start_utc": "2026-09-13T05:36:36.898827+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T05:36:46.726866+00:00"
+    },
+    {
+      "report": "experiment-1mib.txt",
+      "command": [
+        "target/release/examples/hash_traversal",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--cache-mib",
+        "1"
+      ],
+      "binary_sha256": "022878a3d29a42cc9410dde695fafc84b6b8519686e9bff139d53c18bdcc0e76",
+      "start_utc": "2026-09-13T05:37:21.029411+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T05:37:57.039156+00:00"
+    }
+  ],
+  "power_after": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true\n"
+  },
+  "validation_commands": [
+    "cargo test --workspace --all-targets --all-features --locked --offline",
+    "cargo test --workspace --all-targets --all-features --release --locked --offline",
+    "cargo fmt --all -- --check",
+    "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings"
+  ],
+  "validation_exit_codes": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "comparison_method": {
+    "no_hash": "median of 22 raw samples pooled from 11 before and 11 after; 3 warmups each",
+    "16_mib": "21 samples, 3 warmups; rotating/reversing case order",
+    "1_mib": "11 samples, 3 warmups; sensitivity check",
+    "cached_total": "per-sample clear time plus traversal; allocation excluded",
+    "baseline_caveat": "No-hash reference is the frozen pre-incremental executable, 144-byte Position; other variants use the current experiment harness and 152-byte Position. Eager original/current baseline runs check harness/build comparability.",
+    "statistics": "linear-interpolated quartiles; timing spread is not a confidence interval; background activity uncontrolled",
+    "files": [
+      "comparison.csv",
+      "diagnostics.csv"
+    ]
+  }
+}

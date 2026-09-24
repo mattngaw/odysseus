@@ -1,0 +1,1226 @@
+--- a/crates/penteconter/Cargo.toml
++++ b/crates/penteconter/Cargo.toml
+@@ -10,3 +10,7 @@
+ [[example]]
+ name = "hash_traversal"
+ required-features = ["perft-experiment"]
++
++[[example]]
++name = "transitions"
++required-features = ["perft-experiment"]
+--- a/crates/penteconter/examples/baseline.rs
++++ b/crates/penteconter/examples/baseline.rs
+@@ -26,7 +26,7 @@
+ FEN parsing, count assertions, statistics, and output are outside timing.
+ Workload order rotates each round. These are warm-cache, single-thread timings;
+ CPU placement, frequency, and other system activity are not controlled.
+-Perft maintains hashes during apply, without a transposition cache. Apply mode
++Perft uses board-only legality and hashes retained positions, without a cache. Apply mode
+ keeps final positions and their keys observable; bulk may optimize unused work.
+ Redirect stdout to retain the complete report, including raw elapsed nanoseconds.";
+ 
+@@ -224,7 +224,7 @@
+ }
+ 
+ fn report(cases: &[Case], options: &Options) {
+-    println!("Penteconter performance baseline v2 (incremental hashing)");
++    println!("Penteconter performance baseline v3 (board-only legality)");
+     println!(
+         "Platform: {}-{}; optimized build with debug assertions disabled",
+         env::consts::ARCH,
+@@ -239,7 +239,7 @@
+         "Order: rotate starting workload by one per round; raw sample numbers are per-workload chronological order"
+     );
+     println!(
+-        "Perft: uncached, incremental hashing, no divide; includes move buffers and legal filtering; counts checked after timing"
++        "Perft: uncached, board-only legality, incremental child hashing, no divide; includes move buffers and legal filtering; counts checked after timing"
+     );
+     println!(
+         "Bulk skips final reapplication and may optimize unused hashes; apply includes it and black_box of each leaf position, including its key"
+--- a/crates/penteconter/examples/transitions.rs
++++ b/crates/penteconter/examples/transitions.rs
+@@ -0,0 +1,329 @@
++//! Paired, uncached copy/apply versus make/unmake traversal measurements.
++
++use penteconter::{
++    Position,
++    perft::{
++        LeafMode,
++        transition_experiment::{self, Strategy},
++    },
++};
++use std::{env, hint::black_box, process::ExitCode, time::Instant};
++
++const USAGE: &str = "Usage: transitions [--warmup N] [--samples N] [--deeper]
++
++Defaults: 3 warmup rounds, 21 paired samples. --deeper adds one ply.
++Use --release --features perft-experiment. No transposition cache.
++Both strategies use board-only legality and the same forward hash updates.
++Apply exposes a reference to each complete leaf through black_box in both paths.
++Bulk skips full transitions for final legal moves. Make/unmake restores all
++accepted children, including final leaves in Apply mode.
++Move buffers are allocated inside timing. FEN parsing, initial root copy,
++count/restoration checks, output, and diagnostic counters are outside timing.
++Each pair measures both strategies consecutively; first strategy alternates
++between rounds, and case order rotates. Code/data are warmed; scheduling,
++frequency, and other system activity are uncontrolled. Single-threaded.";
++
++const FIXTURES: [(&str, &str, u8, [u64; 2]); 4] = [
++    (
++        "initial",
++        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
++        5,
++        [4_865_609, 119_060_324],
++    ),
++    (
++        "kiwipete",
++        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
++        4,
++        [4_085_603, 193_690_690],
++    ),
++    (
++        "endgame",
++        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
++        5,
++        [674_624, 11_030_083],
++    ),
++    (
++        "promotions",
++        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
++        4,
++        [2_103_487, 89_941_194],
++    ),
++];
++
++struct Options {
++    warmup: usize,
++    samples: usize,
++    deeper: bool,
++}
++
++fn parse() -> Result<Option<Options>, String> {
++    let mut options = Options {
++        warmup: 3,
++        samples: 21,
++        deeper: false,
++    };
++    let mut seen = Vec::new();
++    let mut args = env::args().skip(1);
++    while let Some(arg) = args.next() {
++        if arg == "--help" || arg == "-h" {
++            return Ok(None);
++        }
++        if seen.contains(&arg) {
++            return Err(format!("repeated argument: {arg}"));
++        }
++        seen.push(arg.clone());
++        if arg == "--deeper" {
++            options.deeper = true;
++            continue;
++        }
++        let slot = match arg.as_str() {
++            "--warmup" => &mut options.warmup,
++            "--samples" => &mut options.samples,
++            _ => return Err(format!("unknown argument: {arg}")),
++        };
++        *slot = args
++            .next()
++            .ok_or_else(|| format!("missing value: {arg}"))?
++            .parse()
++            .map_err(|_| format!("invalid unsigned integer: {arg}"))?;
++    }
++    if options.samples == 0 {
++        return Err("--samples must be positive".into());
++    }
++    Ok(Some(options))
++}
++
++#[derive(Clone, Copy)]
++struct Sample {
++    copy_ns: u128,
++    unmake_ns: u128,
++    copy_first: bool,
++}
++
++struct Case {
++    name: &'static str,
++    position: Position,
++    depth: u8,
++    leaves: u64,
++    mode: LeafMode,
++    samples: Vec<Sample>,
++}
++
++impl Case {
++    fn label(&self) -> String {
++        format!(
++            "{},{},{}",
++            self.name,
++            self.depth,
++            if self.mode == LeafMode::Apply {
++                "apply"
++            } else {
++                "bulk"
++            }
++        )
++    }
++
++    fn measure(&self, strategy: Strategy) -> u128 {
++        let mut working = self.position;
++        let start = Instant::now();
++        let result = transition_experiment::run(
++            black_box(&mut working),
++            black_box(self.depth),
++            black_box(self.mode),
++            strategy,
++            false,
++        );
++        let nodes = black_box(result.nodes);
++        let ns = start.elapsed().as_nanos();
++        assert_eq!(nodes, self.leaves, "{} {strategy:?}", self.label());
++        assert_eq!(
++            working,
++            self.position,
++            "root changed: {} {strategy:?}",
++            self.label()
++        );
++        assert_eq!(working.zobrist_key(), working.recompute_zobrist_key());
++        ns
++    }
++}
++
++fn percentile(sorted: &[f64], fraction: f64) -> f64 {
++    let index = (sorted.len() - 1) as f64 * fraction;
++    let low = index.floor() as usize;
++    let high = index.ceil() as usize;
++    sorted[low] + (sorted[high] - sorted[low]) * index.fract()
++}
++
++fn execute(options: Options) {
++    let mut cases = Vec::new();
++    for (name, fen, depth, counts) in FIXTURES {
++        for mode in [LeafMode::Bulk, LeafMode::Apply] {
++            cases.push(Case {
++                name,
++                position: fen.parse().unwrap(),
++                depth: depth + u8::from(options.deeper),
++                leaves: counts[usize::from(options.deeper)],
++                mode,
++                samples: Vec::new(),
++            });
++        }
++    }
++    for round in 0..options.warmup + options.samples {
++        for offset in 0..cases.len() {
++            let index = (round + offset) % cases.len();
++            let case = &mut cases[index];
++            let copy_first = round % 2 == 0;
++            let (copy_ns, unmake_ns) = if copy_first {
++                (
++                    case.measure(Strategy::CopyApply),
++                    case.measure(Strategy::MakeUnmake),
++                )
++            } else {
++                let unmake_ns = case.measure(Strategy::MakeUnmake);
++                (case.measure(Strategy::CopyApply), unmake_ns)
++            };
++            if round >= options.warmup {
++                case.samples.push(Sample {
++                    copy_ns,
++                    unmake_ns,
++                    copy_first,
++                });
++            }
++        }
++    }
++    println!("Penteconter transition experiment v1\n{USAGE}");
++    println!(
++        "warmup={},samples={},position_bytes={},undo_bytes={},deeper={}",
++        options.warmup,
++        options.samples,
++        size_of::<Position>(),
++        transition_experiment::UNDO_BYTES,
++        options.deeper
++    );
++    println!("\nSummary:");
++    println!("name,depth,mode,strategy,leaves,min_ns,p25_ns,median_ns,p75_ns,max_ns,median_mnps");
++    for case in &cases {
++        for (strategy, copy) in [("copy_apply", true), ("make_unmake", false)] {
++            let mut times: Vec<_> = case
++                .samples
++                .iter()
++                .map(|s| {
++                    if copy {
++                        s.copy_ns as f64
++                    } else {
++                        s.unmake_ns as f64
++                    }
++                })
++                .collect();
++            times.sort_by(f64::total_cmp);
++            println!(
++                "{},{},{},{:.0},{:.0},{:.0},{:.0},{:.0},{:.3}",
++                case.label(),
++                strategy,
++                case.leaves,
++                times[0],
++                percentile(&times, 0.25),
++                percentile(&times, 0.5),
++                percentile(&times, 0.75),
++                times[times.len() - 1],
++                case.leaves as f64 * 1000.0 / percentile(&times, 0.5)
++            );
++        }
++    }
++    println!("\nPaired ratios (unmake time / copy time; below 1 favors unmake):");
++    println!("name,depth,mode,p25_ratio,median_ratio,p75_ratio");
++    for case in &cases {
++        let mut ratios: Vec<_> = case
++            .samples
++            .iter()
++            .map(|s| s.unmake_ns as f64 / s.copy_ns as f64)
++            .collect();
++        ratios.sort_by(f64::total_cmp);
++        println!(
++            "{},{:.4},{:.4},{:.4}",
++            case.label(),
++            percentile(&ratios, 0.25),
++            percentile(&ratios, 0.5),
++            percentile(&ratios, 0.75)
++        );
++    }
++    println!("\nRaw pairs:");
++    println!("name,depth,mode,sample,first,copy_ns,unmake_ns");
++    for case in &cases {
++        for (i, s) in case.samples.iter().enumerate() {
++            println!(
++                "{},{},{},{},{}",
++                case.label(),
++                i + 1,
++                if s.copy_first {
++                    "copy_apply"
++                } else {
++                    "make_unmake"
++                },
++                s.copy_ns,
++                s.unmake_ns
++            );
++        }
++    }
++    println!("\nUntimed diagnostics:");
++    println!("name,depth,mode,leaves,expanded,transitions");
++    for case in &cases {
++        let mut working = case.position;
++        let copy = transition_experiment::run(
++            &mut working,
++            case.depth,
++            case.mode,
++            Strategy::CopyApply,
++            true,
++        );
++        assert_eq!(working, case.position);
++        let unmake = transition_experiment::run(
++            &mut working,
++            case.depth,
++            case.mode,
++            Strategy::MakeUnmake,
++            true,
++        );
++        assert_eq!(working, case.position);
++        assert_eq!(copy, unmake);
++        assert_eq!(copy.nodes, case.leaves);
++        println!(
++            "{},{},{},{}",
++            case.label(),
++            copy.nodes,
++            copy.expanded,
++            copy.transitions
++        );
++    }
++    println!("\nFixtures:");
++    println!("name,depth,leaves,fen");
++    for (name, fen, depth, counts) in FIXTURES {
++        println!(
++            "{},{},{},{}",
++            name,
++            depth + u8::from(options.deeper),
++            counts[usize::from(options.deeper)],
++            fen
++        );
++    }
++}
++
++fn main() -> ExitCode {
++    let options = match parse() {
++        Ok(Some(options)) => options,
++        Ok(None) => {
++            println!("{USAGE}");
++            return ExitCode::SUCCESS;
++        }
++        Err(error) => {
++            eprintln!("{error}\n\n{USAGE}");
++            return ExitCode::FAILURE;
++        }
++    };
++    if cfg!(debug_assertions) {
++        eprintln!("Use --release: debug consistency checks dominate this experiment.");
++        return ExitCode::FAILURE;
++    }
++    execute(options);
++    ExitCode::SUCCESS
++}
+--- a/crates/penteconter/src/perft/experiment/tests.rs
++++ b/crates/penteconter/src/perft/experiment/tests.rs
+@@ -28,7 +28,7 @@
+     for mv in candidates {
+         let child = position.apply(mv);
+         assert_eq!(
+-            apply_placement(position.board(), mv),
++            position.board().after_move(mv),
+             *child.board(),
+             "{mv}, {}",
+             position.to_fen()
+@@ -37,8 +37,8 @@
+     }
+     let mut eager = Vec::new();
+     let mut placement = Vec::new();
+-    position.generate_legal_moves(&mut eager);
+-    generate_placement_legal(position, &mut placement);
++    generate_eager_legal(position, &mut eager);
++    position.generate_legal_moves(&mut placement);
+     assert_eq!(eager, placement, "{}", position.to_fen());
+     for mv in eager {
+         compare_candidates(&position.apply(mv), depth - 1);
+--- a/crates/penteconter/src/perft/experiment.rs
++++ b/crates/penteconter/src/perft/experiment.rs
+@@ -1,15 +1,15 @@
+ //! Opt-in comparison of eager and placement-only legality, with optional caching.
+-//! The production legal generator and uncached `perft::run` remain the baseline.
++//! Board-only legality is the default; eager legality is retained as a reference.
+ 
+ use super::LeafMode;
+-use crate::{Board, Move, MoveKind, Piece, PieceKind, Position, Square};
++use crate::{Move, MoveKind, Position, Square};
+ 
+ #[cfg(test)]
+ mod tests;
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum Legality {
+-    /// The existing generator: full copy-and-apply, including hashing.
++    /// The previous generator: full copy-and-apply, including hashing.
+     Eager,
+     /// Check candidate placements only; hash accepted traversal children normally.
+     PlacementOnly,
+@@ -175,9 +175,9 @@
+     }
+     moves.clear();
+     if PLACEMENT {
+-        generate_placement_legal(position, moves);
++        position.generate_legal_moves(moves);
+     } else {
+-        position.generate_legal_moves(moves);
++        generate_eager_legal(position, moves);
+     }
+     let mut nodes = 0u64;
+     if remaining.is_empty() && mode == LeafMode::Bulk {
+@@ -209,13 +209,13 @@
+     nodes
+ }
+ 
+-fn generate_placement_legal(position: &Position, moves: &mut Vec<Move>) {
++fn generate_eager_legal(position: &Position, moves: &mut Vec<Move>) {
+     let start = moves.len();
+     position.generate_pseudo_legal_moves(moves);
+     let mut write = start;
+     for read in start..moves.len() {
+         let mv = moves[read];
+-        if placement_is_legal(position, mv) {
++        if eager_is_legal(position, mv) {
+             moves[write] = mv;
+             write += 1;
+         }
+@@ -223,7 +223,8 @@
+     moves.truncate(write);
+ }
+ 
+-fn placement_is_legal(position: &Position, mv: Move) -> bool {
++// Only for candidates produced by our generators, not arbitrary Move values.
++fn eager_is_legal(position: &Position, mv: Move) -> bool {
+     let mover = position.side_to_move();
+     if mv.kind() == MoveKind::Castling {
+         if position.in_check(mover) {
+@@ -231,46 +232,11 @@
+         }
+         let transit = Square::new(((mv.from().index() + mv.to().index()) / 2) as u8).unwrap();
+         let step = Move::new(mv.from(), transit, MoveKind::Normal).unwrap();
+-        if apply_placement(position.board(), step).in_check(mover) {
++        // Use the occupancy after the king leaves its source. The rook is
++        // still at home during this transit check.
++        if position.apply(step).in_check(mover) {
+             return false;
+         }
+     }
+-    !apply_placement(position.board(), mv).in_check(mover)
+-}
+-
+-// Experimental scratch placement, not a partially valid Position. Candidates
+-// must satisfy the same geometry/ownership preconditions as Position::apply.
+-// Keep this alternative separate until reviewed; tests compare every candidate's
+-// resulting Board with full apply, including candidates later rejected.
+-fn apply_placement(board: &Board, mv: Move) -> Board {
+-    let mut next = *board;
+-    let piece = next
+-        .remove_piece(mv.from())
+-        .expect("source must be occupied");
+-    match mv.kind() {
+-        MoveKind::Normal => {
+-            next.set_piece(mv.to(), piece);
+-        }
+-        MoveKind::Promotion(kind) => {
+-            next.set_piece(mv.to(), Piece::new(piece.color(), kind));
+-        }
+-        MoveKind::EnPassant => {
+-            next.remove_piece(Square::from_coords(mv.to().file(), mv.from().rank()).unwrap());
+-            next.set_piece(mv.to(), piece);
+-        }
+-        MoveKind::Castling => {
+-            let (from_file, to_file) = match mv.to().file() {
+-                6 => (7, 5),
+-                2 => (0, 3),
+-                _ => panic!("castling king must land on file c or g"),
+-            };
+-            next.remove_piece(Square::from_coords(from_file, mv.from().rank()).unwrap());
+-            next.set_piece(
+-                Square::from_coords(to_file, mv.from().rank()).unwrap(),
+-                Piece::new(piece.color(), PieceKind::Rook),
+-            );
+-            next.set_piece(mv.to(), piece);
+-        }
+-    }
+-    next
+-}
++    !position.apply(mv).in_check(mover)
++}
+--- a/crates/penteconter/src/perft/transition_experiment.rs
++++ b/crates/penteconter/src/perft/transition_experiment.rs
+@@ -0,0 +1,157 @@
++//! Uncached comparison of copy/apply and make/unmake, using default legality.
++
++use super::LeafMode;
++use crate::{Move, Position};
++
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++pub enum Strategy {
++    CopyApply,
++    MakeUnmake,
++}
++
++/// Includes alignment/padding, not just the sum of saved field sizes.
++pub const UNDO_BYTES: usize = size_of::<crate::position::Undo>();
++
++#[derive(Debug, Default, Eq, PartialEq)]
++pub struct Result {
++    pub nodes: u64,
++    /// Legal-generator calls; zero when instrumentation is disabled.
++    pub expanded: u64,
++    /// Accepted child positions constructed; zero without instrumentation.
++    pub transitions: u64,
++}
++
++/// Both strategies leave the root unchanged on successful return. The caller
++/// checks it outside timing. There is no unwind guard if a deeper move panics.
++///
++/// Allocate one move vector per depth; use identical legal generation, move
++/// order, hash updates, and leaf observation. Apply mode passes a REFERENCE to
++/// each complete leaf through black_box: both placements and keys are accessible,
++/// without requiring a by-value Position copy just to observe make/unmake's leaf.
++/// Bulk counts final legal moves without performing their full transitions.
++///
++/// Statistics and strategy selection specialize outside the recursive loop.
++pub fn run(
++    position: &mut Position,
++    depth: u8,
++    mode: LeafMode,
++    strategy: Strategy,
++    instrument: bool,
++) -> Result {
++    match (strategy, instrument) {
++        (Strategy::CopyApply, false) => traverse::<false, false>(position, depth, mode),
++        (Strategy::CopyApply, true) => traverse::<false, true>(position, depth, mode),
++        (Strategy::MakeUnmake, false) => traverse::<true, false>(position, depth, mode),
++        (Strategy::MakeUnmake, true) => traverse::<true, true>(position, depth, mode),
++    }
++}
++
++fn traverse<const UNMAKE: bool, const TRACK: bool>(
++    position: &mut Position,
++    depth: u8,
++    mode: LeafMode,
++) -> Result {
++    let mut buffers: Vec<Vec<Move>> = (0..depth).map(|_| Vec::new()).collect();
++    let mut result = Result::default();
++    result.nodes = visit::<UNMAKE, TRACK>(position, &mut buffers, mode, &mut result);
++    result
++}
++
++fn visit<const UNMAKE: bool, const TRACK: bool>(
++    position: &mut Position,
++    buffers: &mut [Vec<Move>],
++    mode: LeafMode,
++    result: &mut Result,
++) -> u64 {
++    let Some((moves, remaining)) = buffers.split_first_mut() else {
++        return 1;
++    };
++    if TRACK {
++        result.expanded += 1;
++    }
++    moves.clear();
++    position.generate_legal_moves(moves);
++    if remaining.is_empty() && mode == LeafMode::Bulk {
++        return moves.len() as u64;
++    }
++    if TRACK {
++        result.transitions += moves.len() as u64;
++    }
++    let mut nodes = 0u64;
++    for &mv in moves.iter() {
++        let count = if UNMAKE {
++            let undo = position.make(mv);
++            let count = descend::<UNMAKE, TRACK>(position, remaining, mode, result);
++            position.unmake(mv, undo);
++            count
++        } else {
++            let mut child = position.apply(mv);
++            descend::<UNMAKE, TRACK>(&mut child, remaining, mode, result)
++        };
++        nodes = nodes.checked_add(count).expect("perft node count overflow");
++    }
++    nodes
++}
++
++#[inline]
++fn descend<const UNMAKE: bool, const TRACK: bool>(
++    position: &mut Position,
++    remaining: &mut [Vec<Move>],
++    mode: LeafMode,
++    result: &mut Result,
++) -> u64 {
++    if remaining.is_empty() {
++        std::hint::black_box(&*position);
++        1
++    } else {
++        visit::<UNMAKE, TRACK>(position, remaining, mode, result)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn strategies_match_counts_work_and_original_positions() {
++        for (fen, depth, expected) in [
++            (
++                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
++                3,
++                8902,
++            ),
++            (
++                "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
++                3,
++                97862,
++            ),
++            ("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", 3, 2812),
++            (
++                "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
++                3,
++                62379,
++            ),
++            ("k7/1Q6/2K5/8/8/8/8/8 b - - 0 1", 2, 0),
++            ("k7/2Q5/2K5/8/8/8/8/8 b - - 0 1", 2, 0),
++        ] {
++            let root: Position = fen.parse().unwrap();
++            for mode in [LeafMode::Bulk, LeafMode::Apply] {
++                let mut working = root;
++                let copy = run(&mut working, depth, mode, Strategy::CopyApply, true);
++                assert_eq!(working, root);
++                let unmake = run(&mut working, depth, mode, Strategy::MakeUnmake, true);
++                assert_eq!(copy, unmake);
++                assert_eq!(unmake.nodes, expected);
++                assert_eq!(working, root);
++                for strategy in [Strategy::CopyApply, Strategy::MakeUnmake] {
++                    let plain = run(&mut working, depth, mode, strategy, false);
++                    assert_eq!(plain.nodes, expected);
++                    assert_eq!((plain.expanded, plain.transitions), (0, 0));
++                    assert_eq!(working, root);
++                    assert_eq!(run(&mut working, 0, mode, strategy, true).nodes, 1);
++                    assert_eq!(working, root);
++                }
++            }
++        }
++    }
++}
+--- a/crates/penteconter/src/perft.rs
++++ b/crates/penteconter/src/perft.rs
+@@ -4,6 +4,9 @@
+ 
+ #[cfg(feature = "perft-experiment")]
+ pub mod experiment;
++
++#[cfg(feature = "perft-experiment")]
++pub mod transition_experiment;
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum LeafMode {
+@@ -26,8 +29,8 @@
+ /// Depth zero counts one leaf; terminal positions at positive depth count zero.
+ /// Draw adjudication is not part of perft.
+ ///
+-/// Legal filtering already applies candidates. Recursion applies accepted moves
+-/// again; `Bulk` skips that second application only at the final ply. `Apply`
++/// Legal filtering checks scratch board placements. Recursion constructs full
++/// accepted child positions; `Bulk` skips this at the final ply. `Apply`
+ /// uses a compiler barrier for final positions so those updates remain observable.
+ /// Buffer setup and optional divide collection are part of this call; parsing,
+ /// timing, and output are left to the caller.
+--- a/crates/penteconter/src/position/attack_queries.rs
++++ b/crates/penteconter/src/position/attack_queries.rs
+@@ -24,7 +24,7 @@
+ }
+ 
+ // Placement is sufficient for attack queries. These stay crate-private so
+-// experiments can inspect a Board without constructing an incomplete Position.
++// legality checks can inspect a Board without constructing a Position.
+ impl Board {
+     pub(crate) fn attackers_to(&self, square: Square, by: Color) -> Bitboard {
+         let board = self;
+--- a/crates/penteconter/src/position/movegen/legal.rs
++++ b/crates/penteconter/src/position/movegen/legal.rs
+@@ -5,12 +5,12 @@
+     /// without inspecting them. Surviving candidates retain their generation
+     /// order: pawns, N/B/R/Q, ordinary king moves, then castling.
+     ///
+-    /// Filters king safety using copy-and-apply, including en passant's removal
++    /// Filters king safety on copied board placements, including en passant's removal
+     /// of the captured pawn. Castling also checks the starting and transit
+     /// squares. This does not establish historical reachability or adjudicate
+     /// draws; callers can clear and reuse the vector between positions.
+     ///
+-    /// Panics if applying a candidate overflows a u32 move counter.
++    /// Does not advance counters or compute temporary position hashes.
+     pub fn generate_legal_moves(&self, moves: &mut Vec<Move>) {
+         let start = moves.len();
+         self.generate_pseudo_legal_moves(moves);
+@@ -36,11 +36,11 @@
+             let step = Move::new(mv.from(), transit, MoveKind::Normal).unwrap();
+             // Use the occupancy after the king leaves its source. The rook is
+             // still at home during this transit check.
+-            if self.apply(step).in_check(mover) {
++            if self.board.after_move(step).in_check(mover) {
+                 return false;
+             }
+         }
+-        !self.apply(mv).in_check(mover)
++        !self.board.after_move(mv).in_check(mover)
+     }
+ }
+ 
+@@ -206,4 +206,20 @@
+         let position: Position = "4k3/8/8/8/8/8/8/4K3 w - - 150 100".parse().unwrap();
+         assert_eq!(legal(&position).len(), 5);
+     }
++
++    #[test]
++    fn legality_does_not_advance_maximal_counters_or_change_position() {
++        for side in ["w", "b"] {
++            let position: Position =
++                format!("4k3/8/8/8/8/8/8/4K3 {side} - - {} {}", u32::MAX, u32::MAX)
++                    .parse()
++                    .unwrap();
++            let before = position;
++            let mut moves = Vec::new();
++            position.generate_legal_moves(&mut moves);
++            assert_eq!(moves.len(), 5);
++            assert_eq!(position, before);
++            assert_eq!(position.zobrist_key(), position.recompute_zobrist_key());
++        }
++    }
+ }
+--- a/crates/penteconter/src/position/placement.rs
++++ b/crates/penteconter/src/position/placement.rs
+@@ -0,0 +1,39 @@
++use crate::{Board, Move, MoveKind, Piece, PieceKind, Square};
++
++impl Board {
++    // Placement-only scratch for generated candidates. The caller supplies
++    // correct geometry/ownership and any required castling or EP metadata.
++    // Board setters keep the mailbox and all bitboards synchronized.
++    pub(crate) fn after_move(&self, mv: Move) -> Self {
++        let mut next = *self;
++        let piece = next
++            .remove_piece(mv.from())
++            .expect("source must be occupied");
++        match mv.kind() {
++            MoveKind::Normal => {
++                next.set_piece(mv.to(), piece);
++            }
++            MoveKind::Promotion(kind) => {
++                next.set_piece(mv.to(), Piece::new(piece.color(), kind));
++            }
++            MoveKind::EnPassant => {
++                next.remove_piece(Square::from_coords(mv.to().file(), mv.from().rank()).unwrap());
++                next.set_piece(mv.to(), piece);
++            }
++            MoveKind::Castling => {
++                let (from_file, to_file) = match mv.to().file() {
++                    6 => (7, 5),
++                    2 => (0, 3),
++                    _ => panic!("castling king must land on file c or g"),
++                };
++                next.remove_piece(Square::from_coords(from_file, mv.from().rank()).unwrap());
++                next.set_piece(
++                    Square::from_coords(to_file, mv.from().rank()).unwrap(),
++                    Piece::new(piece.color(), PieceKind::Rook),
++                );
++                next.set_piece(mv.to(), piece);
++            }
++        }
++        next
++    }
++}
+--- a/crates/penteconter/src/position/transition/reversible/tests.rs
++++ b/crates/penteconter/src/position/transition/reversible/tests.rs
+@@ -0,0 +1,132 @@
++use super::*;
++
++fn check_tree(position: &mut Position, depth: u8) -> u64 {
++    assert_eq!(position.zobrist_key(), position.recompute_zobrist_key());
++    if depth == 0 {
++        return 1;
++    }
++    let before = *position;
++    let mut moves = Vec::new();
++    position.generate_legal_moves(&mut moves);
++    let mut count = 0;
++    for mv in moves {
++        let expected = before.apply(mv);
++        let undo = position.make(mv);
++        assert_eq!(*position, expected);
++        count += check_tree(position, depth - 1);
++        position.unmake(mv, undo);
++        assert_eq!(*position, before, "parent not restored after {mv}");
++        assert_eq!(position.zobrist_key(), position.recompute_zobrist_key());
++    }
++    count
++}
++
++#[test]
++fn every_parent_and_hash_is_restored_through_standard_perft_trees() {
++    for (fen, depth, count) in [
++        (
++            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
++            3,
++            8902,
++        ),
++        (
++            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
++            3,
++            97862,
++        ),
++        ("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", 4, 43238),
++        (
++            "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
++            3,
++            62379,
++        ),
++    ] {
++        let mut position: Position = fen.parse().unwrap();
++        assert_eq!(check_tree(&mut position, depth), count);
++        assert_eq!(position.to_fen(), fen);
++    }
++}
++
++#[test]
++fn rejected_candidates_and_raw_ep_metadata_round_trip() {
++    for fen in [
++        "k3r3/8/8/8/8/8/4R3/4K3 w - - 7 8",
++        "k4r2/8/8/8/8/8/8/4K2R w K - 0 1",
++        "k7/8/8/K2pP2r/8/8/8/8 w - d6 0 8",
++        "k7/8/8/3pP3/4K3/8/8/8 w - d6 0 8",
++        "8/8/8/4k3/3Pp3/8/8/K7 b - d3 0 8",
++        "4k3/8/8/3p4/8/8/8/4K3 w - d6 0 1",
++    ] {
++        let before: Position = fen.parse().unwrap();
++        let mut working = before;
++        let mut candidates = Vec::new();
++        before.generate_pseudo_legal_moves(&mut candidates);
++        for mv in candidates {
++            let undo = working.make(mv);
++            assert_eq!(working, before.apply(mv));
++            assert_eq!(working.zobrist_key(), working.recompute_zobrist_key());
++            working.unmake(mv, undo);
++            assert_eq!(working, before);
++            assert_eq!(working.to_fen(), fen);
++            assert_eq!(working.zobrist_key(), working.recompute_zobrist_key());
++        }
++    }
++}
++
++#[test]
++fn long_lines_unwind_in_reverse_order_to_each_exact_parent() {
++    for fen in [
++        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
++        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
++    ] {
++        let root: Position = fen.parse().unwrap();
++        let mut position = root;
++        let mut stack = Vec::new();
++        let mut seed = 0x4f44595353455553u64;
++        for _ in 0..256 {
++            let mut moves = Vec::new();
++            position.generate_legal_moves(&mut moves);
++            if moves.is_empty() {
++                break;
++            }
++            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
++            let mv = moves[(seed >> 32) as usize % moves.len()];
++            let parent = position;
++            let undo = position.make(mv);
++            assert_eq!(position, parent.apply(mv));
++            assert_eq!(position.zobrist_key(), position.recompute_zobrist_key());
++            stack.push((mv, undo, parent));
++        }
++        assert!(stack.len() > 10);
++        while let Some((mv, undo, parent)) = stack.pop() {
++            position.unmake(mv, undo);
++            assert_eq!(position, parent);
++            assert_eq!(position.zobrist_key(), position.recompute_zobrist_key());
++        }
++        assert_eq!(position, root);
++    }
++}
++
++#[test]
++fn make_counter_overflow_leaves_the_entire_position_unchanged() {
++    use std::panic::{AssertUnwindSafe, catch_unwind};
++    for (fen, from, to) in [
++        (format!("4k3/8/8/8/8/8/8/4K3 w - - {} 1", u32::MAX), 4, 3),
++        (format!("4k3/8/8/8/8/8/8/4K3 b - - 0 {}", u32::MAX), 60, 59),
++    ] {
++        let before: Position = fen.parse().unwrap();
++        let mut working = before;
++        let mv = Move::new(
++            Square::new(from).unwrap(),
++            Square::new(to).unwrap(),
++            MoveKind::Normal,
++        )
++        .unwrap();
++        let result = catch_unwind(AssertUnwindSafe(|| {
++            let _undo = working.make(mv);
++        }));
++        assert!(result.is_err());
++        assert_eq!(working, before);
++        assert_eq!(working.zobrist_key(), working.recompute_zobrist_key());
++    }
++}
+--- a/crates/penteconter/src/position/transition/reversible.rs
++++ b/crates/penteconter/src/position/transition/reversible.rs
+@@ -0,0 +1,88 @@
++use super::Position;
++use crate::{CastlingRights, Move, MoveKind, Piece, PieceKind, Square};
++
++#[cfg(test)]
++mod tests;
++
++// Linear-use record: private fields, no Clone/Copy. The caller already has mv.
++// Placement is reversed; irreversible metadata and the old key are restored.
++#[must_use = "retain the undo record to restore the position"]
++pub(crate) struct Undo {
++    key: u64,
++    halfmove_clock: u32,
++    fullmove_number: u32,
++    castling_rights: CastlingRights,
++    en_passant_target: Option<Square>,
++    moved: Piece,
++    captured: Option<Piece>,
++}
++
++impl Position {
++    /// Experimental in-place transition with the same preconditions as apply.
++    /// Counter overflow leaves the position unchanged. Other contract violations
++    /// are caller errors, with no guarantee of recovery after a debug panic.
++    pub(crate) fn make(&mut self, mv: Move) -> Undo {
++        let captured_square = if mv.kind() == MoveKind::EnPassant {
++            Square::from_coords(mv.to().file(), mv.from().rank()).unwrap()
++        } else {
++            mv.to()
++        };
++        let undo = Undo {
++            key: self.zobrist_key,
++            halfmove_clock: self.halfmove_clock,
++            fullmove_number: self.fullmove_number,
++            castling_rights: self.castling_rights,
++            en_passant_target: self.en_passant_target,
++            moved: self
++                .board
++                .piece_at(mv.from())
++                .expect("source must be occupied"),
++            captured: self.board.piece_at(captured_square),
++        };
++        self.apply_in_place(mv);
++        undo
++    }
++
++    /// Restore the immediate child of the paired make. Deeper moves must already
++    /// have been undone; mv and undo must come from that exact transition.
++    pub(crate) fn unmake(&mut self, mv: Move, undo: Undo) {
++        debug_assert_eq!(self.side_to_move, undo.moved.color().opposite());
++        debug_assert_eq!(
++            self.board.piece_at(mv.to()),
++            Some(match mv.kind() {
++                MoveKind::Promotion(kind) => Piece::new(undo.moved.color(), kind),
++                _ => undo.moved,
++            })
++        );
++        self.board.remove_piece(mv.to());
++        self.board.set_piece(mv.from(), undo.moved);
++        if mv.kind() == MoveKind::Castling {
++            let (home_file, transit_file) = match mv.to().file() {
++                6 => (7, 5),
++                2 => (0, 3),
++                _ => panic!("castling king must land on file c or g"),
++            };
++            self.board
++                .remove_piece(Square::from_coords(transit_file, mv.from().rank()).unwrap());
++            self.board.set_piece(
++                Square::from_coords(home_file, mv.from().rank()).unwrap(),
++                Piece::new(undo.moved.color(), PieceKind::Rook),
++            );
++        }
++        if let Some(captured) = undo.captured {
++            let square = if mv.kind() == MoveKind::EnPassant {
++                Square::from_coords(mv.to().file(), mv.from().rank()).unwrap()
++            } else {
++                mv.to()
++            };
++            self.board.set_piece(square, captured);
++        }
++        self.side_to_move = undo.moved.color();
++        self.castling_rights = undo.castling_rights;
++        self.en_passant_target = undo.en_passant_target;
++        self.halfmove_clock = undo.halfmove_clock;
++        self.fullmove_number = undo.fullmove_number;
++        self.zobrist_key = undo.key;
++        debug_assert_eq!(self.zobrist_key, self.recompute_zobrist_key());
++    }
++}
+--- a/crates/penteconter/src/position/transition.rs
++++ b/crates/penteconter/src/position/transition.rs
+@@ -1,5 +1,10 @@
+ use super::{Position, zobrist::piece_square_key};
+ use crate::{CastlingSide, Color, Move, MoveKind, Piece, PieceKind, Square};
++
++#[cfg(any(test, feature = "perft-experiment"))]
++mod reversible;
++#[cfg(feature = "perft-experiment")]
++pub(crate) use reversible::Undo;
+ 
+ impl Position {
+     /// Copies this position and applies a move, including standard castling.
+@@ -18,6 +23,15 @@
+     /// Maintains the Zobrist key and checks it against full recomputation in
+     /// debug builds, including for candidates the legality filter will reject.
+     pub(crate) fn apply(&self, mv: Move) -> Self {
++        let mut next = *self;
++        next.apply_in_place(mv);
++        next
++    }
++
++    // Shared forward operation. Private: callers must uphold apply's contracts.
++    // Check counter overflow before any mutation so that failure leaves self intact.
++    #[inline]
++    fn apply_in_place(&mut self, mv: Move) {
+         let from = mv.from();
+         let to = mv.to();
+         let piece = self.board.piece_at(from).expect("source must be occupied");
+@@ -27,20 +41,35 @@
+             captured.is_none_or(|p| { p.color() != piece.color() && p.kind() != PieceKind::King })
+         );
+ 
+-        let mut next = *self;
++        // The original piece is still a pawn for promotion and en passant,
++        // including en passant's capture on a square other than the destination.
++        let halfmove_clock = if piece.kind() == PieceKind::Pawn || captured.is_some() {
++            0
++        } else {
++            self.halfmove_clock
++                .checked_add(1)
++                .expect("halfmove clock overflow")
++        };
++        let fullmove_number = match self.side_to_move {
++            Color::White => self.fullmove_number,
++            Color::Black => self
++                .fullmove_number
++                .checked_add(1)
++                .expect("fullmove number overflow"),
++        };
+         // Remove metadata while it still describes the original placement.
+         // Until the final update below, only the placement contribution remains.
+-        next.zobrist_key ^= self.metadata_zobrist_key();
+-        next.remove_piece(from);
++        self.zobrist_key ^= self.metadata_zobrist_key();
++        self.remove_piece(from);
+         match mv.kind() {
+             MoveKind::Normal => {
+                 debug_assert!(piece.kind() != PieceKind::Pawn || (1..7).contains(&to.rank()));
+-                next.set_piece(to, piece);
++                self.set_piece(to, piece);
+             }
+             MoveKind::Promotion(kind) => {
+                 debug_assert_eq!(piece.kind(), PieceKind::Pawn);
+                 debug_assert_eq!(to.rank(), if piece.color() == Color::White { 7 } else { 0 });
+-                next.set_piece(to, Piece::new(piece.color(), kind));
++                self.set_piece(to, Piece::new(piece.color(), kind));
+             }
+             MoveKind::EnPassant => {
+                 debug_assert_eq!(piece.kind(), PieceKind::Pawn);
+@@ -51,8 +80,8 @@
+                     self.board.piece_at(pawn_square),
+                     Some(Piece::new(piece.color().opposite(), PieceKind::Pawn))
+                 );
+-                next.remove_piece(pawn_square);
+-                next.set_piece(to, piece);
++                self.remove_piece(pawn_square);
++                self.set_piece(to, piece);
+             }
+             MoveKind::Castling => {
+                 let rank = if piece.color() == Color::White { 0 } else { 7 };
+@@ -74,25 +103,25 @@
+                         .piece_at(Square::from_coords(file, rank).unwrap())
+                         .is_none()
+                 }));
+-                next.remove_piece(rook_from);
+-                next.set_piece(rook_to, rook);
+-                next.set_piece(to, piece);
++                self.remove_piece(rook_from);
++                self.set_piece(rook_to, rook);
++                self.set_piece(to, piece);
+             }
+         }
+ 
+         if piece.kind() == PieceKind::King {
+-            next.castling_rights
++            self.castling_rights
+                 .remove(piece.color(), CastlingSide::Kingside);
+-            next.castling_rights
++            self.castling_rights
+                 .remove(piece.color(), CastlingSide::Queenside);
+         }
+         // In a structurally valid position, a retained right guarantees the
+         // corresponding rook occupies its corner. Leaving or capturing on that
+         // square therefore revokes the right, regardless of the capturing piece.
+-        next.revoke_corner_right(from);
+-        next.revoke_corner_right(to);
+-
+-        next.en_passant_target = if mv.kind() == MoveKind::Normal
++        self.revoke_corner_right(from);
++        self.revoke_corner_right(to);
++
++        self.en_passant_target = if mv.kind() == MoveKind::Normal
+             && piece.kind() == PieceKind::Pawn
+             && from.index().abs_diff(to.index()) == 16
+         {
+@@ -101,27 +130,12 @@
+         } else {
+             None
+         };
+-        // The original piece is still a pawn for promotion and en passant,
+-        // including en passant's capture on a square other than the destination.
+-        next.halfmove_clock = if piece.kind() == PieceKind::Pawn || captured.is_some() {
+-            0
+-        } else {
+-            self.halfmove_clock
+-                .checked_add(1)
+-                .expect("halfmove clock overflow")
+-        };
+-        next.fullmove_number = match self.side_to_move {
+-            Color::White => self.fullmove_number,
+-            Color::Black => self
+-                .fullmove_number
+-                .checked_add(1)
+-                .expect("fullmove number overflow"),
+-        };
+-        next.side_to_move = self.side_to_move.opposite();
++        self.halfmove_clock = halfmove_clock;
++        self.fullmove_number = fullmove_number;
++        self.side_to_move = self.side_to_move.opposite();
+         // Evaluate new EP availability from the new side's perspective.
+-        next.zobrist_key ^= next.metadata_zobrist_key();
+-        debug_assert_eq!(next.zobrist_key, next.recompute_zobrist_key());
+-        next
++        self.zobrist_key ^= self.metadata_zobrist_key();
++        debug_assert_eq!(self.zobrist_key, self.recompute_zobrist_key());
+     }
+ 
+     // Placement and its hash contribution change together, including captures
+@@ -169,6 +183,13 @@
+         let mv = Move::new(square(&coordinates[..2]), square(&coordinates[2..]), kind).unwrap();
+         let before = *position;
+         let next = position.apply(mv);
++        assert_eq!(position.board().after_move(mv), *next.board());
++        let mut working = *position;
++        let undo = working.make(mv);
++        assert_eq!(working, next);
++        working.unmake(mv, undo);
++        assert_eq!(working, *position, "unmake failed for {coordinates}");
++        assert_eq!(working.zobrist_key(), working.recompute_zobrist_key());
+         assert_eq!(position.zobrist_key(), position.recompute_zobrist_key());
+         assert_eq!(next.zobrist_key(), next.recompute_zobrist_key());
+         assert_eq!(*position, before, "parent changed");
+--- a/crates/penteconter/src/position/zobrist.rs
++++ b/crates/penteconter/src/position/zobrist.rs
+@@ -1,5 +1,5 @@
+ use super::Position;
+-use crate::{Bitboard, CastlingSide, Color, Piece, PieceKind, Square, attacks};
++use crate::{Bitboard, CastlingSide, Color, Move, MoveKind, Piece, PieceKind, Square, attacks};
+ 
+ #[cfg(test)]
+ mod tests;
+@@ -82,17 +82,9 @@
+         while let Some(from) = sources.pop_first() {
+             // Position's structural invariants guarantee the target is empty
+             // and the opposing double-pushed pawn is present on this square.
+-            let captured = Square::from_coords(target.file(), from.rank()).unwrap();
+-            let mut scratch = *self;
+-            scratch.board.remove_piece(from);
+-            scratch.board.remove_piece(captured);
+-            scratch
+-                .board
+-                .set_piece(target, Piece::new(mover, PieceKind::Pawn));
+-
+-            // Only inspect attacks on this scratch placement; its metadata and
+-            // cached key are stale. Avoid apply(): hashing must not advance
+-            // counters or recursively invoke incremental hash maintenance.
++            let mv = Move::new(from, target, MoveKind::EnPassant).unwrap();
++            let scratch = self.board.after_move(mv);
++            // Do not advance counters or recursively invoke hash maintenance.
+             if !scratch.in_check(mover) {
+                 return Some(target.file());
+             }
+--- a/crates/penteconter/src/position.rs
++++ b/crates/penteconter/src/position.rs
+@@ -4,8 +4,12 @@
+ 
+ mod attack_queries;
+ mod movegen;
++mod placement;
+ mod transition;
+ mod zobrist;
++
++#[cfg(feature = "perft-experiment")]
++pub(crate) use transition::Undo;
+ 
+ /// Placement and metadata for one position, without game history.
+ ///

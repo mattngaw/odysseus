@@ -1,0 +1,16 @@
+warning: constant evaluation is taking a long time
+  --> crates/penteconter/src/attacks/reference.rs:35:24
+   |
+35 |         let mut file = square.file() as i8 + df;
+   |                        ^^^^^^^^^^^^^ the const evaluator is currently interpreting this expression
+   |
+help: the constant being evaluated
+  --> crates/penteconter/src/attacks/magic.rs:40:1
+   |
+40 | static ATTACKS: [Bitboard; TABLE_LEN] = build_attacks();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `penteconter` (lib) generated 1 warning
+   Compiling penteconter v0.1.0 (/Users/matto/Work/odysseus/crates/penteconter)
+     Running `/Users/matto/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name baseline --edition=2024 crates/penteconter/examples/baseline.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=07611cba521dbf4d -C extra-filename=-9cdecf9fc8b89f2c --out-dir /Users/matto/Work/odysseus/target/release/examples -C strip=debuginfo -L dependency=/Users/matto/Work/odysseus/target/release/deps --extern penteconter=/Users/matto/Work/odysseus/target/release/deps/libpenteconter-a98c1f4eb33f98d3.rlib`
+    Finished `release` profile [optimized] target(s) in 0.53s

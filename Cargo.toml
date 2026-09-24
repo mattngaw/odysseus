@@ -1,6 +1,8 @@
-[package]
-name = "odysseus"
+[workspace]
+members = ["crates/odysseus", "crates/penteconter", "crates/pyxis"]
+resolver = "3"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
-
-[dependencies]
+publish = false

@@ -1,0 +1,154 @@
+Penteconter transition experiment v1
+Usage: transitions [--warmup N] [--samples N] [--deeper]
+
+Defaults: 3 warmup rounds, 21 paired samples. --deeper adds one ply.
+Use --release --features perft-experiment. No transposition cache.
+Both strategies use board-only legality and the same forward hash updates.
+Apply exposes a reference to each complete leaf through black_box in both paths.
+Bulk skips full transitions for final legal moves. Make/unmake restores all
+accepted children, including final leaves in Apply mode.
+Move buffers are allocated inside timing. FEN parsing, initial root copy,
+count/restoration checks, output, and diagnostic counters are outside timing.
+Each pair measures both strategies consecutively; first strategy alternates
+between rounds, and case order rotates. Code/data are warmed; scheduling,
+frequency, and other system activity are uncontrolled. Single-threaded.
+warmup=3,samples=11,position_bytes=152,undo_bytes=24,deeper=false
+
+Summary:
+name,depth,mode,strategy,leaves,min_ns,p25_ns,median_ns,p75_ns,max_ns,median_mnps
+initial,5,bulk,copy_apply,4865609,68304416,68332958,68420375,68704750,69748584,71.113
+initial,5,bulk,make_unmake,4865609,68649209,68821083,68991042,69165875,70349291,70.525
+initial,5,apply,copy_apply,4865609,145737209,145862250,147138583,147466604,148109000,33.068
+initial,5,apply,make_unmake,4865609,166494167,166981583,167330917,167506979,168530875,29.078
+kiwipete,4,bulk,copy_apply,4085603,59818916,59967646,60148209,60295292,111609208,67.926
+kiwipete,4,bulk,make_unmake,4085603,59852083,60549792,60727625,60981270,62437125,67.278
+kiwipete,4,apply,copy_apply,4085603,124555209,125472250,125782417,127161125,132479375,32.482
+kiwipete,4,apply,make_unmake,4085603,140368500,140678666,141557833,142602708,204885584,28.862
+endgame,5,bulk,copy_apply,674624,12837333,13019250,13234166,13396104,13497708,50.976
+endgame,5,bulk,make_unmake,674624,13156584,13305188,13384333,13464312,14303459,50.404
+endgame,5,apply,copy_apply,674624,24378791,24756021,24976375,25070771,26216750,27.010
+endgame,5,apply,make_unmake,674624,26413125,26691521,26793333,27238750,28480375,25.179
+promotions,4,bulk,copy_apply,2103487,31699042,31901312,32023209,32568458,32959917,65.686
+promotions,4,bulk,make_unmake,2103487,31361250,31746979,32157291,32414792,33864166,65.412
+promotions,4,apply,copy_apply,2103487,64314708,64413021,64543208,64780334,68615500,32.590
+promotions,4,apply,make_unmake,2103487,73065708,73493562,73526667,74052354,77291708,28.608
+
+Paired ratios (unmake time / copy time; below 1 favors unmake):
+name,depth,mode,p25_ratio,median_ratio,p75_ratio
+initial,5,bulk,1.0033,1.0086,1.0102
+initial,5,apply,1.1340,1.1361,1.1473
+kiwipete,4,bulk,1.0047,1.0121,1.0137
+kiwipete,4,apply,1.1145,1.1202,1.1269
+endgame,5,bulk,0.9990,1.0197,1.0348
+endgame,5,apply,1.0680,1.0759,1.0879
+promotions,4,bulk,0.9870,1.0006,1.0123
+promotions,4,apply,1.1345,1.1383,1.1438
+
+Raw pairs:
+name,depth,mode,sample,first,copy_ns,unmake_ns
+initial,5,bulk,1,make_unmake,68381500,68649209
+initial,5,bulk,2,copy_apply,68949208,69201125
+initial,5,bulk,3,make_unmake,68331208,68916584
+initial,5,bulk,4,copy_apply,68627125,68811583
+initial,5,bulk,5,make_unmake,68622958,68830583
+initial,5,bulk,6,copy_apply,68420375,69130625
+initial,5,bulk,7,make_unmake,69748584,70349291
+initial,5,bulk,8,copy_apply,68334709,69565917
+initial,5,bulk,9,make_unmake,68304416,68991042
+initial,5,bulk,10,copy_apply,68782375,68809375
+initial,5,bulk,11,make_unmake,68329125,69119834
+initial,5,apply,1,make_unmake,147182041,166952041
+initial,5,apply,2,copy_apply,145737209,167436459
+initial,5,apply,3,make_unmake,146765917,166494167
+initial,5,apply,4,copy_apply,147623584,168530875
+initial,5,apply,5,make_unmake,145921750,167690875
+initial,5,apply,6,copy_apply,147138583,166629500
+initial,5,apply,7,make_unmake,145754834,167011125
+initial,5,apply,8,copy_apply,147498541,167201167
+initial,5,apply,9,make_unmake,147434666,167507167
+initial,5,apply,10,copy_apply,145802750,167506791
+initial,5,apply,11,make_unmake,148109000,167330917
+kiwipete,4,bulk,1,make_unmake,60006750,60735417
+kiwipete,4,bulk,2,copy_apply,60268667,61031791
+kiwipete,4,bulk,3,make_unmake,59861750,60727625
+kiwipete,4,bulk,4,copy_apply,59818916,60588583
+kiwipete,4,bulk,5,make_unmake,59999292,60930750
+kiwipete,4,bulk,6,copy_apply,60148209,60511000
+kiwipete,4,bulk,7,make_unmake,60275083,60482333
+kiwipete,4,bulk,8,copy_apply,63359500,62437125
+kiwipete,4,bulk,9,make_unmake,59936000,61080417
+kiwipete,4,bulk,10,copy_apply,60315500,60711417
+kiwipete,4,bulk,11,make_unmake,111609208,59852083
+kiwipete,4,apply,1,make_unmake,124555209,143349125
+kiwipete,4,apply,2,copy_apply,125718750,141557833
+kiwipete,4,apply,3,make_unmake,125482792,140717125
+kiwipete,4,apply,4,copy_apply,127108708,141385875
+kiwipete,4,apply,5,make_unmake,126181375,140640208
+kiwipete,4,apply,6,copy_apply,125461709,140546042
+kiwipete,4,apply,7,make_unmake,132479375,204885584
+kiwipete,4,apply,8,copy_apply,129531709,144157917
+kiwipete,4,apply,9,make_unmake,125782417,141856291
+kiwipete,4,apply,10,copy_apply,125441166,140368500
+kiwipete,4,apply,11,make_unmake,127213542,141776667
+endgame,5,bulk,1,make_unmake,12902542,13156584
+endgame,5,bulk,2,copy_apply,13493375,13167041
+endgame,5,bulk,3,make_unmake,13497708,13384333
+endgame,5,bulk,4,copy_apply,13234166,13356000
+endgame,5,bulk,5,make_unmake,12910542,13486083
+endgame,5,bulk,6,copy_apply,13363584,13254375
+endgame,5,bulk,7,make_unmake,13428625,14303459
+endgame,5,bulk,8,copy_apply,13169083,13451916
+endgame,5,bulk,9,make_unmake,12837333,13388917
+endgame,5,bulk,10,copy_apply,13298959,13380917
+endgame,5,bulk,11,make_unmake,13127958,13476708
+endgame,5,apply,1,make_unmake,25002000,26413125
+endgame,5,apply,2,copy_apply,24990834,26793333
+endgame,5,apply,3,make_unmake,24907750,26606584
+endgame,5,apply,4,copy_apply,24604292,27395167
+endgame,5,apply,5,make_unmake,25139542,26763958
+endgame,5,apply,6,copy_apply,24378791,27026417
+endgame,5,apply,7,make_unmake,26216750,28480375
+endgame,5,apply,8,copy_apply,25487667,27421375
+endgame,5,apply,9,make_unmake,24976375,26668167
+endgame,5,apply,10,copy_apply,24528292,26714875
+endgame,5,apply,11,make_unmake,24921750,27082333
+promotions,4,bulk,1,make_unmake,31949166,32082250
+promotions,4,bulk,2,copy_apply,31699042,32333000
+promotions,4,bulk,3,make_unmake,31735917,31754666
+promotions,4,bulk,4,copy_apply,32023209,31561708
+promotions,4,bulk,5,make_unmake,31990917,31739292
+promotions,4,bulk,6,copy_apply,32453625,32601084
+promotions,4,bulk,7,make_unmake,32959917,33864166
+promotions,4,bulk,8,copy_apply,32810291,32157291
+promotions,4,bulk,9,make_unmake,31853459,32496583
+promotions,4,bulk,10,copy_apply,32207791,31361250
+promotions,4,bulk,11,make_unmake,32683292,32303750
+promotions,4,apply,1,make_unmake,64415250,73065708
+promotions,4,apply,2,copy_apply,64461000,73865750
+promotions,4,apply,3,make_unmake,64623167,73526667
+promotions,4,apply,4,copy_apply,64337958,74268750
+promotions,4,apply,5,make_unmake,64543208,73160375
+promotions,4,apply,6,copy_apply,64410792,73525625
+promotions,4,apply,7,make_unmake,68615500,77291708
+promotions,4,apply,8,copy_apply,64787042,73744084
+promotions,4,apply,9,make_unmake,64314708,73487208
+promotions,4,apply,10,copy_apply,64842375,74238958
+promotions,4,apply,11,make_unmake,64773625,73499916
+
+Untimed diagnostics:
+name,depth,mode,leaves,expanded,transitions
+initial,5,bulk,4865609,206604,206603
+initial,5,apply,4865609,206604,5072212
+kiwipete,4,bulk,4085603,99950,99949
+kiwipete,4,apply,4085603,99950,4185552
+endgame,5,bulk,674624,46256,46255
+endgame,5,apply,674624,46256,720879
+promotions,4,bulk,2103487,63910,63909
+promotions,4,apply,2103487,63910,2167396
+
+Fixtures:
+name,depth,leaves,fen
+initial,5,4865609,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+kiwipete,4,4085603,r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+endgame,5,674624,8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1
+promotions,4,2103487,rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8

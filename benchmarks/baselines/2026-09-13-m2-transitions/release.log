@@ -1,0 +1,232 @@
+   Compiling penteconter v0.1.0 (/Users/matto/Work/odysseus/crates/penteconter)
+warning: constant evaluation is taking a long time
+  --> crates/penteconter/src/attacks/reference.rs:35:24
+   |
+35 |         let mut file = square.file() as i8 + df;
+   |                        ^^^^^^^^^^^^^ the const evaluator is currently interpreting this expression
+   |
+help: the constant being evaluated
+  --> crates/penteconter/src/attacks/magic.rs:40:1
+   |
+40 | static ATTACKS: [Bitboard; TABLE_LEN] = build_attacks();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `penteconter` (lib) generated 1 warning (1 duplicate)
+warning: `penteconter` (lib test) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 8.69s
+     Running unittests src/lib.rs (target/release/deps/penteconter-ff9239d1417b8b02)
+
+running 90 tests
+test attacks::magic::tests::corner_and_center_masks_have_expected_bits ... ok
+test attacks::reference::tests::first_blockers_are_included_and_hide_everything_beyond_them ... ok
+test attacks::tests::knight_and_king_tables_match_coordinate_distances_for_every_square_pair ... ok
+test attacks::tests::pawn_directions_match_coordinates_for_every_square_pair_and_color ... ok
+test attacks::tests::separate_directions_preserve_two_sources_attacking_one_target ... ok
+test attacks::magic::tests::masks_contain_exactly_the_single_blockers_that_change_attacks ... ok
+test bitboard::tests::popping_visits_each_member_once_in_ascending_order ... ok
+test bitboard::tests::set_operations_match_membership ... ok
+test bitboard::tests::singleton_updates_cover_every_square ... ok
+test bitboard::tests::subsets_match_explicit_bit_deposition_including_high_bits ... ok
+test board::tests::consistency_check_detects_disagreement_in_each_representation ... ok
+test board::tests::empty_board_has_no_pieces ... ok
+test attacks::tests::whole_pawn_sets_match_coordinate_oracle ... ok
+test board::tests::every_piece_can_be_placed_and_removed_on_every_square ... ok
+test board::tests::mixed_placements_preserve_untouched_squares_and_copies ... ok
+test castling::tests::all_subsets_support_independent_idempotent_updates ... ok
+test chess_move::tests::compact_moves_support_constant_construction_and_access ... ok
+test chess_move::tests::pawn_and_king_promotions_are_rejected ... ok
+test chess_move::tests::formatting_shows_coordinates_and_typed_debug_fields ... ok
+test chess_move::tests::all_encodable_moves_are_distinct_and_round_trip ... ok
+test perft::experiment::tests::cache_requires_full_key_and_exact_depth_and_replaces_conflicts ... ok
+test board::tests::every_replacement_preserves_only_the_new_membership ... ok
+test perft::tests::divide_handles_depth_zero_depth_one_and_terminal_positions ... ok
+test perft::experiment::tests::terminal_positions_and_depth_zero_are_not_confused_with_empty_entries ... ok
+test piece::tests::all_twelve_pieces_are_distinct_and_round_trip ... ok
+test perft::experiment::tests::equivalent_counters_and_uncapturable_ep_can_reuse_cache_but_legal_ep_cannot ... ok
+test piece::tests::colors_have_distinct_indices_and_opposites ... ok
+test piece::tests::construction_and_access_work_in_constants ... ok
+test piece::tests::kinds_index_the_six_piece_bitboards ... ok
+test piece::tests::optional_piece_fits_in_one_mailbox_byte ... ok
+test position::movegen::kings::tests::attacked_start_transit_and_destination_do_not_remove_castling_candidates ... ok
+test attacks::magic::tests::every_relevant_subset_is_unique_and_ignored_occupancy_cannot_change_attacks ... ok
+test position::movegen::kings::tests::appending_preserves_entries_and_reuses_capacity_including_when_no_moves_exist ... ok
+test position::movegen::kings::tests::ordinary_king_moves_keep_attacked_destinations_and_defended_captures ... ok
+test position::movegen::kings::tests::castling_candidates_require_the_right_and_every_path_square_empty ... ok
+test perft::tests::leaf_modes_and_divide_agree_on_counts_and_root_moves ... ok
+test position::movegen::legal::tests::castling_checks_start_transit_and_destination_but_not_the_rook_only_path ... ok
+test position::movegen::legal::tests::combines_components_and_preserves_prefix_order_and_allocation ... ok
+test position::movegen::legal::tests::en_passant_can_expose_a_rook_or_remove_a_checking_pawn ... ok
+test position::movegen::legal::tests::legality_does_not_advance_maximal_counters_or_change_position ... ok
+test position::movegen::legal::tests::king_safety_uses_updated_occupancy_and_counts_pinned_attackers ... ok
+test position::movegen::legal::tests::mate_and_stalemate_append_nothing_but_draw_counters_do_not_stop_generation ... ok
+test position::movegen::legal::tests::pins_and_double_check_are_filtered_but_capturing_the_checker_is_allowed ... ok
+test position::movegen::pawns::tests::double_pushes_require_both_squares_empty_and_the_starting_rank ... ok
+test position::movegen::pawns::tests::en_passant_uses_current_target_preserves_both_sources_and_does_not_filter_check ... ok
+test position::movegen::pawns::tests::opening_has_sixteen_pawn_moves_and_supports_appending_and_reuse ... ok
+test position::movegen::pawns::tests::promotion_pushes_and_shared_capture_targets_keep_all_four_choices ... ok
+test position::movegen::perft::perft_counts_depth_zero_as_one_even_for_terminal_positions ... ok
+test attacks::reference::tests::every_origin_matches_visibility_for_single_and_multiple_blockers ... ok
+test position::movegen::kings::tests::ordinary_moves_match_coordinate_geometry_for_every_king_square_and_color ... ok
+test position::movegen::tests::append_preserves_existing_entries_and_clear_reuses_capacity ... ok
+test position::movegen::tests::opening_generates_only_four_knight_moves_for_either_turn ... ok
+test position::movegen::tests::pinned_moves_and_moves_that_do_not_evade_check_are_kept ... ok
+test position::movegen::pawns::tests::coordinate_oracle_covers_edges_blockers_king_exclusion_and_mixed_pawn_sets ... ok
+test position::movegen::tests::sliders_stop_at_friendly_pieces_captures_and_the_enemy_king ... ok
+test position::tests::en_passant_checks_target_rank_and_occupancy_for_both_turns ... ok
+test position::tests::counters_preserve_their_values_and_fullmove_starts_at_one ... ok
+test position::tests::en_passant_requires_a_consistent_double_push ... ok
+test position::tests::rejects_missing_and_duplicate_kings_of_either_color ... ok
+test position::tests::rejects_pawns_on_both_back_ranks_but_accepts_interior_ranks ... ok
+test position::tests::relative_occupancy_changes_without_changing_absolute_placement ... ok
+test position::tests::retained_castling_rights_require_the_matching_king_and_rook ... ok
+test position::transition::reversible::tests::make_counter_overflow_leaves_the_entire_position_unchanged ... ok
+test position::transition::reversible::tests::rejected_candidates_and_raw_ep_metadata_round_trip ... ok
+test position::transition::tests::applying_a_pinned_move_leaves_king_safety_to_the_caller ... ok
+test position::transition::tests::castling_moves_both_pieces_and_updates_shared_metadata ... ok
+test position::transition::tests::en_passant_removes_the_bypassed_pawn_in_both_directions_for_both_colors ... ok
+test position::transition::tests::fullmove_overflow_is_explicit - should panic ... ok
+test position::transition::tests::halfmove_overflow_is_explicit - should panic ... ok
+test position::transition::reversible::tests::long_lines_unwind_in_reverse_order_to_each_exact_parent ... ok
+test position::transition::tests::king_moves_rook_moves_and_corner_captures_only_remove_affected_rights ... ok
+test position::transition::tests::ordinary_moves_clear_expired_targets_and_reset_clocks_only_when_required ... ok
+test position::transition::tests::opening_sequence_updates_turns_clocks_and_en_passant ... ok
+test position::transition::tests::returning_rooks_does_not_restore_castling_rights ... ok
+test position::transition::tests::promotions_replace_the_pawn_and_revoke_captured_rooks_rights ... ok
+test position::transition::tests::special_move_king_safety_is_left_to_the_caller ... ok
+test position::zobrist::tests::a_reversible_cycle_restores_the_key_but_not_the_move_counters ... ok
+test position::zobrist::tests::double_pushes_hash_new_en_passant_only_when_legal_for_the_opponent ... ok
+test position::zobrist::tests::full_recomputation_ignores_the_cached_key ... ok
+test position::zobrist::tests::old_en_passant_expires_using_the_original_placement ... ok
+test position::zobrist::tests::rejected_candidates_also_have_consistent_keys ... ok
+test square::tests::every_square_round_trips_through_coordinates ... ok
+test square::tests::invalid_indices_and_coordinates_are_rejected ... ok
+test position::movegen::tests::generated_moves_match_mailbox_oracle_and_apply_consistently ... ok
+test position::movegen::perft::standard_perft_positions_match_published_counts ... ok
+test position::zobrist::tests::incremental_keys_match_recomputation_through_legal_trees ... ok
+test perft::experiment::tests::scratch_placement_and_order_match_full_apply_including_rejected_candidates ... ok
+test position::transition::reversible::tests::every_parent_and_hash_is_restored_through_standard_perft_trees ... ok
+test perft::transition_experiment::tests::strategies_match_counts_work_and_original_positions ... ok
+test perft::experiment::tests::both_legality_and_leaf_modes_match_known_counts_with_eviction ... ok
+
+test result: ok. 90 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/attack_queries.rs (target/release/deps/attack_queries-9ed8f81fe4c2c297)
+
+running 5 tests
+test pinned_pieces_still_attack_empty_and_friendly_occupied_squares ... ok
+test check_queries_support_double_check_and_either_color_regardless_of_turn ... ok
+test blockers_hide_sliders_of_either_color_and_targets_do_not_block_the_query ... ok
+test pawns_attack_diagonals_not_pushes_or_the_en_passant_victim ... ok
+test all_targets_match_forward_attacks_on_sparse_and_dense_placements ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fen.rs (target/release/deps/fen-c1946e86b41b1b0d)
+
+running 6 tests
+test canonical_fixtures_round_trip_including_uncapturable_en_passant ... ok
+test all_castling_subsets_serialize_in_canonical_order ... ok
+test starting_position_has_the_expected_absolute_placement_and_metadata ... ok
+test structurally_invalid_positions_are_rejected_after_parsing ... ok
+test malformed_fields_return_typed_errors ... ok
+test whitespace_and_decimal_formatting_are_normalized ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sliding_attacks.rs (target/release/deps/sliding_attacks-92afb7a4ecc8699b)
+
+running 2 tests
+test combined_rank_file_and_diagonal_blockers_match_for_all_three_sliders ... ok
+test every_relevant_occupancy_matches_the_reference_through_the_main_api ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/zobrist.rs (target/release/deps/zobrist-478c8153dd69ead6)
+
+running 10 tests
+test en_passant_identity_does_not_advance_the_fullmove_counter ... ok
+test known_positions_have_reproducible_keys ... ok
+test placement_distinguishes_color_kind_and_square_including_kings ... ok
+test all_castling_rights_contribute_even_when_paths_are_blocked ... ok
+test turn_is_included_and_both_counters_are_excluded_without_changing_equality ... ok
+test one_legal_en_passant_candidate_is_sufficient_even_if_the_first_is_pinned ... ok
+test uncapturable_en_passant_targets_are_ignored ... ok
+test en_passant_must_not_expose_or_leave_the_moving_king_in_check ... ok
+test legal_en_passant_contributes_a_distinct_key_for_each_file_for_both_colors ... ok
+test legal_en_passant_can_capture_a_checker_or_block_a_check ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/attacks.rs (target/release/examples/attacks-90412aed8be8fa58)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/baseline.rs (target/release/examples/baseline-c54cfaa4946c4f2b)
+
+running 2 tests
+test tests::quartiles_interpolate_even_odd_and_single_sample_sets ... ok
+test tests::matched_ep_fixtures_have_the_intended_legality_and_hash_relationships ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/display.rs (target/release/examples/display-306b081cf81c1b69)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/fen.rs (target/release/examples/fen-24875061020247d1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/hash_traversal.rs (target/release/examples/hash_traversal-287a7cd62e7e372d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/magic_masks.rs (target/release/examples/magic_masks-3c3188b7b92ce6ff)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/magic_search.rs (target/release/examples/magic_search-8aeaca41054d691f)
+
+running 3 tests
+test tests::distinguishes_constructive_and_destructive_collisions ... ok
+test tests::budget_exhaustion_and_corrupted_tables_are_detected ... ok
+test tests::search_is_repeatable_and_the_result_verifies ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/perft.rs (target/release/examples/perft-b794a1ffa73b8bbf)
+
+running 2 tests
+test tests::parses_defaults_and_explicit_workload_options ... ok
+test tests::rejects_missing_malformed_unknown_and_repeated_arguments ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/reference_attacks.rs (target/release/examples/reference_attacks-106ea598ac99d1c6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/sliding_attacks.rs (target/release/examples/sliding_attacks-dab8e4799799c26d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/transitions.rs (target/release/examples/transitions-1321e4755406e0e1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

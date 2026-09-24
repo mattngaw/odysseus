@@ -1,0 +1,137 @@
+[
+  {
+    "stage": "before",
+    "profile": "debug",
+    "trial": 1,
+    "wall_seconds": 9.152321625035256,
+    "exit_code": 0,
+    "working_directory": "/Users/matto/Work/odysseus",
+    "command": [
+      "cargo",
+      "build",
+      "--manifest-path",
+      "/Users/matto/Work/odysseus/target/reviews/magic-build-script/before/Cargo.toml",
+      "-p",
+      "penteconter",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--target-dir",
+      "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/before-debug-1"
+    ],
+    "log": "/Users/matto/Work/odysseus/benchmarks/baselines/2026-09-18-magic-build-script/before-debug-1.log"
+  },
+  {
+    "stage": "before",
+    "profile": "release",
+    "trial": 1,
+    "wall_seconds": 6.790894249919802,
+    "exit_code": 0,
+    "working_directory": "/Users/matto/Work/odysseus",
+    "command": [
+      "cargo",
+      "build",
+      "--manifest-path",
+      "/Users/matto/Work/odysseus/target/reviews/magic-build-script/before/Cargo.toml",
+      "-p",
+      "penteconter",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--target-dir",
+      "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/before-release-1",
+      "--release"
+    ],
+    "log": "/Users/matto/Work/odysseus/benchmarks/baselines/2026-09-18-magic-build-script/before-release-1.log"
+  },
+  {
+    "stage": "before",
+    "profile": "debug",
+    "trial": 2,
+    "wall_seconds": 8.646371499984525,
+    "exit_code": 0,
+    "working_directory": "/Users/matto/Work/odysseus",
+    "command": [
+      "cargo",
+      "build",
+      "--manifest-path",
+      "/Users/matto/Work/odysseus/target/reviews/magic-build-script/before/Cargo.toml",
+      "-p",
+      "penteconter",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--target-dir",
+      "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/before-debug-2"
+    ],
+    "log": "/Users/matto/Work/odysseus/benchmarks/baselines/2026-09-18-magic-build-script/before-debug-2.log"
+  },
+  {
+    "stage": "before",
+    "profile": "release",
+    "trial": 2,
+    "wall_seconds": 6.834321584086865,
+    "exit_code": 0,
+    "working_directory": "/Users/matto/Work/odysseus",
+    "command": [
+      "cargo",
+      "build",
+      "--manifest-path",
+      "/Users/matto/Work/odysseus/target/reviews/magic-build-script/before/Cargo.toml",
+      "-p",
+      "penteconter",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--target-dir",
+      "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/before-release-2",
+      "--release"
+    ],
+    "log": "/Users/matto/Work/odysseus/benchmarks/baselines/2026-09-18-magic-build-script/before-release-2.log"
+  },
+  {
+    "stage": "before",
+    "profile": "debug",
+    "trial": 3,
+    "wall_seconds": 8.542940207989886,
+    "exit_code": 0,
+    "working_directory": "/Users/matto/Work/odysseus",
+    "command": [
+      "cargo",
+      "build",
+      "--manifest-path",
+      "/Users/matto/Work/odysseus/target/reviews/magic-build-script/before/Cargo.toml",
+      "-p",
+      "penteconter",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--target-dir",
+      "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/before-debug-3"
+    ],
+    "log": "/Users/matto/Work/odysseus/benchmarks/baselines/2026-09-18-magic-build-script/before-debug-3.log"
+  },
+  {
+    "stage": "before",
+    "profile": "release",
+    "trial": 3,
+    "wall_seconds": 6.76174754195381,
+    "exit_code": 0,
+    "working_directory": "/Users/matto/Work/odysseus",
+    "command": [
+      "cargo",
+      "build",
+      "--manifest-path",
+      "/Users/matto/Work/odysseus/target/reviews/magic-build-script/before/Cargo.toml",
+      "-p",
+      "penteconter",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--target-dir",
+      "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/before-release-3",
+      "--release"
+    ],
+    "log": "/Users/matto/Work/odysseus/benchmarks/baselines/2026-09-18-magic-build-script/before-release-3.log"
+  }
+]

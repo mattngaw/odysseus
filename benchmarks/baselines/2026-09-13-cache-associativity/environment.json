@@ -1,0 +1,170 @@
+{
+  "captured_at_utc": "2026-09-13T19:33:45.591725+00:00",
+  "working_directory": "/Users/matto/Work/odysseus",
+  "os": {
+    "command": [
+      "sw_vers"
+    ],
+    "exit_code": 0,
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n",
+    "stderr": ""
+  },
+  "architecture": {
+    "command": [
+      "uname",
+      "-m"
+    ],
+    "exit_code": 0,
+    "stdout": "arm64\n",
+    "stderr": ""
+  },
+  "rustc": {
+    "command": [
+      "rustc",
+      "-Vv"
+    ],
+    "exit_code": 0,
+    "stdout": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8\n",
+    "stderr": ""
+  },
+  "cargo": {
+    "command": [
+      "cargo",
+      "-V"
+    ],
+    "exit_code": 0,
+    "stdout": "cargo 1.94.0 (85eff7c80 2026-01-15)\n",
+    "stderr": ""
+  },
+  "power_before": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t100%; charged; 0:00 remaining present: true\n",
+    "stderr": ""
+  },
+  "environment_overrides": {
+    "RUSTFLAGS": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_PROFILE_RELEASE_LTO": null,
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null
+  },
+  "hardware_reference": "../2026-09-13-m2-hash-traversal/environment.json",
+  "controls": {
+    "threads": 1,
+    "cpu_affinity": "not set",
+    "frequency": "not controlled",
+    "background_activity": "not controlled",
+    "allocation": "same Vec<Entry> reused for all ways within each process; allocation excluded",
+    "entry_bytes": 32,
+    "alignment_bytes": 32,
+    "timing": "clear + traversal per sample; code/data warm, table empty",
+    "instrumentation": "separate untimed pass",
+    "policy": "exact key/depth match, otherwise first empty, otherwise shallowest depth, ties first slot; always admit",
+    "comparison": "equal allocated entry bytes for 1/2/4 ways; remaining depth and full key must match; full-key collisions unresolved"
+  },
+  "runs": [
+    {
+      "report": "before-legacy.txt",
+      "command": [
+        "target/reviews/cache-associativity/before-hash-traversal",
+        "--warmup",
+        "1",
+        "--samples",
+        "3",
+        "--cache-mib",
+        "16"
+      ],
+      "binary_sha256": "9bd05b6f3ccdedae7f2fde619c278b1bd468ff3956af830d15003f6ee7edfa40",
+      "start_utc": "2026-09-13T19:33:45.758424+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T19:33:56.048299+00:00",
+      "seconds": 10.29
+    },
+    {
+      "report": "compare-1mib.txt",
+      "command": [
+        "target/reviews/cache-associativity/hash-traversal",
+        "--compare-ways",
+        "--warmup",
+        "3",
+        "--samples",
+        "21",
+        "--cache-mib",
+        "1"
+      ],
+      "binary_sha256": "f1cd55ad19ecfab7aa76c491d2fa8628d8d6c3f37275adfc50011c51f4473646",
+      "start_utc": "2026-09-13T19:33:56.049759+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T19:34:36.140209+00:00",
+      "seconds": 40.09
+    },
+    {
+      "report": "compare-16mib.txt",
+      "command": [
+        "target/reviews/cache-associativity/hash-traversal",
+        "--compare-ways",
+        "--warmup",
+        "3",
+        "--samples",
+        "21",
+        "--cache-mib",
+        "16"
+      ],
+      "binary_sha256": "f1cd55ad19ecfab7aa76c491d2fa8628d8d6c3f37275adfc50011c51f4473646",
+      "start_utc": "2026-09-13T19:34:36.141557+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T19:35:14.206383+00:00",
+      "seconds": 38.06
+    },
+    {
+      "report": "after-legacy.txt",
+      "command": [
+        "target/reviews/cache-associativity/hash-traversal",
+        "--warmup",
+        "1",
+        "--samples",
+        "3",
+        "--cache-mib",
+        "16"
+      ],
+      "binary_sha256": "f1cd55ad19ecfab7aa76c491d2fa8628d8d6c3f37275adfc50011c51f4473646",
+      "start_utc": "2026-09-13T19:35:14.208000+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T19:35:24.360957+00:00",
+      "seconds": 10.15
+    }
+  ],
+  "power_after": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t100%; charged; 0:00 remaining present: true\n",
+    "stderr": ""
+  },
+  "analysis_command": [
+    "python3",
+    "benchmarks/baselines/2026-09-13-cache-associativity/analyze.py"
+  ],
+  "validation_command_record": "validation.json",
+  "results": [
+    "comparison.csv",
+    "summary.csv",
+    "raw-samples.csv",
+    "diagnostics.csv",
+    "analysis-validation.json"
+  ],
+  "interpretation_limits": [
+    "One machine, one replacement policy, fixed 32-byte entries and alignment.",
+    "No CPU affinity, frequency control, or control of background activity.",
+    "Quartiles describe sample spread, not confidence intervals.",
+    "Three-sample legacy runs verify comparability but are not a regression benchmark.",
+    "Reported logical NPS includes subtrees skipped on cache hits."
+  ]
+}

@@ -1,0 +1,26 @@
+[project]
+name = "neurodiktyon"
+version = "0.1.0"
+description = "Odysseus chess models in PyTorch"
+requires-python = ">=3.12"
+dependencies = ["numpy>=2,<3", "torch>=2.13,<2.14"]
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "python"
+
+[dependency-groups]
+dev = ["pytest>=9,<10", "ruff>=0.15,<0.16"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+
+[tool.ruff]
+target-version = "py312"
+src = ["python"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]

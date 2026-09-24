@@ -1,0 +1,227 @@
+Penteconter performance baseline v1
+Platform: aarch64-macos; optimized build with debug assertions disabled
+Position size: 144 bytes
+Warmup rounds: 3; measured rounds: 11; hash calls/sample: 1000000
+Order: rotate starting workload by one per round; raw sample numbers are per-workload chronological order
+Perft: uncached, no hashing, no divide; includes move buffers and legal filtering; counts checked after timing
+Bulk skips final reapplication; apply includes it and black_box of each leaf position
+Hash: fixed position per sample; black_box input and output on every call; includes loop/barrier overhead
+FEN parsing, assertions, statistics, and output excluded; warm-cache single thread; scheduling/frequency uncontrolled
+Quartiles: linear interpolation at (n-1)*p; range and IQR describe samples, not confidence intervals
+
+Summary: ns/leaf for perft, ns/key for hashing; units/s derived from median
+kind,name,depth,mode,units_per_sample,min_ns,p25_ns,median_ns,p75_ns,max_ns,median_units_per_s
+perft,initial,5,bulk,4865609,16.584,16.638,16.674,17.847,21.428,59973980
+perft,initial,5,apply,4865609,27.077,27.321,28.194,29.155,38.203,35468308
+perft,kiwipete,4,bulk,4085603,18.000,18.006,18.167,18.526,21.791,55043551
+perft,kiwipete,4,apply,4085603,29.572,29.781,30.122,31.212,44.516,33198516
+perft,endgame,5,bulk,674624,21.054,21.229,21.454,22.981,63.572,46610306
+perft,endgame,5,apply,674624,32.455,33.035,34.041,35.665,62.630,29376287
+perft,promotions,4,bulk,2103487,18.167,18.348,18.994,22.622,27.456,52648873
+perft,promotions,4,apply,2103487,29.063,29.247,30.770,37.135,51.230,32499210
+hash,initial,0,recompute,1000000,35.378,35.551,36.627,41.598,46.207,27302512
+hash,kiwipete,0,recompute,1000000,35.262,35.664,36.691,38.266,40.286,27254362
+hash,uncapturable_absent,0,recompute,1000000,4.860,4.884,5.048,5.304,6.384,198090095
+hash,uncapturable_target,0,recompute,1000000,5.677,5.741,5.901,6.218,8.973,169466393
+hash,legal_absent,0,recompute,1000000,5.635,5.655,5.686,6.137,18.466,175882159
+hash,legal_target,0,recompute,1000000,15.188,15.279,15.345,17.908,41.276,65166745
+hash,pinned_absent,0,recompute,1000000,6.671,6.771,7.045,7.470,9.331,141949679
+hash,pinned_target,0,recompute,1000000,16.087,16.144,16.237,16.822,17.926,61586469
+
+Raw samples:
+kind,name,depth,mode,sample,units,elapsed_ns
+perft,initial,5,bulk,1,4865609,82705708
+perft,initial,5,bulk,2,4865609,81021500
+perft,initial,5,bulk,3,4865609,85310416
+perft,initial,5,bulk,4,4865609,80692292
+perft,initial,5,bulk,5,4865609,104259417
+perft,initial,5,bulk,6,4865609,80882250
+perft,initial,5,bulk,7,4865609,88360834
+perft,initial,5,bulk,8,4865609,81128666
+perft,initial,5,bulk,9,4865609,81077833
+perft,initial,5,bulk,10,4865609,96676667
+perft,initial,5,bulk,11,4865609,80774333
+perft,initial,5,apply,1,4865609,131745167
+perft,initial,5,apply,2,4865609,137181875
+perft,initial,5,apply,3,4865609,143462167
+perft,initial,5,apply,4,4865609,133747416
+perft,initial,5,apply,5,4865609,185882041
+perft,initial,5,apply,6,4865609,139698584
+perft,initial,5,apply,7,4865609,140339875
+perft,initial,5,apply,8,4865609,132121000
+perft,initial,5,apply,9,4865609,134236167
+perft,initial,5,apply,10,4865609,143377250
+perft,initial,5,apply,11,4865609,131770000
+perft,kiwipete,4,bulk,1,4085603,73611542
+perft,kiwipete,4,bulk,2,4085603,75086458
+perft,kiwipete,4,bulk,3,4085603,73551708
+perft,kiwipete,4,bulk,4,4085603,76289334
+perft,kiwipete,4,bulk,5,4085603,78658917
+perft,kiwipete,4,bulk,6,4085603,89028209
+perft,kiwipete,4,bulk,7,4085603,73541334
+perft,kiwipete,4,bulk,8,4085603,74224917
+perft,kiwipete,4,bulk,9,4085603,73570583
+perft,kiwipete,4,bulk,10,4085603,74610542
+perft,kiwipete,4,bulk,11,4085603,73556958
+perft,kiwipete,4,apply,1,4085603,181873625
+perft,kiwipete,4,apply,2,4085603,120960083
+perft,kiwipete,4,apply,3,4085603,126684708
+perft,kiwipete,4,apply,4,4085603,125340917
+perft,kiwipete,4,apply,5,4085603,128356459
+perft,kiwipete,4,apply,6,4085603,167905459
+perft,kiwipete,4,apply,7,4085603,122061208
+perft,kiwipete,4,apply,8,4085603,123065833
+perft,kiwipete,4,apply,9,4085603,120819750
+perft,kiwipete,4,apply,10,4085603,121287875
+perft,kiwipete,4,apply,11,4085603,122900500
+perft,endgame,5,bulk,1,674624,15704583
+perft,endgame,5,bulk,2,674624,14475333
+perft,endgame,5,bulk,3,674624,17486458
+perft,endgame,5,bulk,4,674624,14473709
+perft,endgame,5,bulk,5,674624,15302375
+perft,endgame,5,bulk,6,674624,42887000
+perft,endgame,5,bulk,7,674624,14360708
+perft,endgame,5,bulk,8,674624,14374166
+perft,endgame,5,bulk,9,674624,14203625
+perft,endgame,5,bulk,10,674624,14283000
+perft,endgame,5,bulk,11,674624,14273208
+perft,endgame,5,apply,1,674624,22964917
+perft,endgame,5,apply,2,674624,22095917
+perft,endgame,5,apply,3,674624,42251958
+perft,endgame,5,apply,4,674624,21895083
+perft,endgame,5,apply,5,674624,24181917
+perft,endgame,5,apply,6,674624,25747916
+perft,endgame,5,apply,7,674624,22688375
+perft,endgame,5,apply,8,674624,22208833
+perft,endgame,5,apply,9,674624,23939625
+perft,endgame,5,apply,10,674624,22363917
+perft,endgame,5,apply,11,674624,23335375
+perft,promotions,4,bulk,1,2103487,51220167
+perft,promotions,4,bulk,2,2103487,39881375
+perft,promotions,4,bulk,3,2103487,57752750
+perft,promotions,4,bulk,4,2103487,38579667
+perft,promotions,4,bulk,5,2103487,43949291
+perft,promotions,4,bulk,6,2103487,39953125
+perft,promotions,4,bulk,7,2103487,52855042
+perft,promotions,4,bulk,8,2103487,38423500
+perft,promotions,4,bulk,9,2103487,38608750
+perft,promotions,4,bulk,10,2103487,38214667
+perft,promotions,4,bulk,11,2103487,42504334
+perft,promotions,4,apply,1,2103487,81757667
+perft,promotions,4,apply,2,2103487,61628333
+perft,promotions,4,apply,3,2103487,107760834
+perft,promotions,4,apply,4,2103487,64724250
+perft,promotions,4,apply,5,2103487,75738042
+perft,promotions,4,apply,6,2103487,61134334
+perft,promotions,4,apply,7,2103487,80486500
+perft,promotions,4,apply,8,2103487,61489125
+perft,promotions,4,apply,9,2103487,61512125
+perft,promotions,4,apply,10,2103487,61530000
+perft,promotions,4,apply,11,2103487,64766708
+hash,initial,0,recompute,1,1000000,40395583
+hash,initial,0,recompute,2,1000000,35602500
+hash,initial,0,recompute,3,1000000,46206708
+hash,initial,0,recompute,4,1000000,37267791
+hash,initial,0,recompute,5,1000000,42799750
+hash,initial,0,recompute,6,1000000,35426625
+hash,initial,0,recompute,7,1000000,44243417
+hash,initial,0,recompute,8,1000000,35378375
+hash,initial,0,recompute,9,1000000,35498583
+hash,initial,0,recompute,10,1000000,35979416
+hash,initial,0,recompute,11,1000000,36626667
+hash,kiwipete,0,recompute,1,1000000,37307417
+hash,kiwipete,0,recompute,2,1000000,35262416
+hash,kiwipete,0,recompute,3,1000000,39103875
+hash,kiwipete,0,recompute,4,1000000,36691375
+hash,kiwipete,0,recompute,5,1000000,37752459
+hash,kiwipete,0,recompute,6,1000000,38779125
+hash,kiwipete,0,recompute,7,1000000,40285833
+hash,kiwipete,0,recompute,8,1000000,35322667
+hash,kiwipete,0,recompute,9,1000000,35734708
+hash,kiwipete,0,recompute,10,1000000,35769833
+hash,kiwipete,0,recompute,11,1000000,35592959
+hash,uncapturable_absent,0,recompute,1,1000000,5501417
+hash,uncapturable_absent,0,recompute,2,1000000,5060333
+hash,uncapturable_absent,0,recompute,3,1000000,6384208
+hash,uncapturable_absent,0,recompute,4,1000000,4868959
+hash,uncapturable_absent,0,recompute,5,1000000,5666458
+hash,uncapturable_absent,0,recompute,6,1000000,4865666
+hash,uncapturable_absent,0,recompute,7,1000000,5106250
+hash,uncapturable_absent,0,recompute,8,1000000,4973417
+hash,uncapturable_absent,0,recompute,9,1000000,4899666
+hash,uncapturable_absent,0,recompute,10,1000000,5048208
+hash,uncapturable_absent,0,recompute,11,1000000,4859792
+hash,uncapturable_target,0,recompute,1,1000000,5841292
+hash,uncapturable_target,0,recompute,2,1000000,5677083
+hash,uncapturable_target,0,recompute,3,1000000,6048000
+hash,uncapturable_target,0,recompute,4,1000000,6385958
+hash,uncapturable_target,0,recompute,5,1000000,7815708
+hash,uncapturable_target,0,recompute,6,1000000,5691250
+hash,uncapturable_target,0,recompute,7,1000000,8972500
+hash,uncapturable_target,0,recompute,8,1000000,5790959
+hash,uncapturable_target,0,recompute,9,1000000,6049167
+hash,uncapturable_target,0,recompute,10,1000000,5691167
+hash,uncapturable_target,0,recompute,11,1000000,5900875
+hash,legal_absent,0,recompute,1,1000000,6463792
+hash,legal_absent,0,recompute,2,1000000,5659167
+hash,legal_absent,0,recompute,3,1000000,5810916
+hash,legal_absent,0,recompute,4,1000000,5645792
+hash,legal_absent,0,recompute,5,1000000,10762209
+hash,legal_absent,0,recompute,6,1000000,5634750
+hash,legal_absent,0,recompute,7,1000000,18466167
+hash,legal_absent,0,recompute,8,1000000,5662708
+hash,legal_absent,0,recompute,9,1000000,5649833
+hash,legal_absent,0,recompute,10,1000000,5685625
+hash,legal_absent,0,recompute,11,1000000,5719416
+hash,legal_target,0,recompute,1,1000000,16324500
+hash,legal_target,0,recompute,2,1000000,15295916
+hash,legal_target,0,recompute,3,1000000,18491375
+hash,legal_target,0,recompute,4,1000000,15214667
+hash,legal_target,0,recompute,5,1000000,41275625
+hash,legal_target,0,recompute,6,1000000,15188291
+hash,legal_target,0,recompute,7,1000000,19149667
+hash,legal_target,0,recompute,8,1000000,17325500
+hash,legal_target,0,recompute,9,1000000,15345250
+hash,legal_target,0,recompute,10,1000000,15261708
+hash,legal_target,0,recompute,11,1000000,15323667
+hash,pinned_absent,0,recompute,1,1000000,7044750
+hash,pinned_absent,0,recompute,2,1000000,7132834
+hash,pinned_absent,0,recompute,3,1000000,9330708
+hash,pinned_absent,0,recompute,4,1000000,6722291
+hash,pinned_absent,0,recompute,5,1000000,7626625
+hash,pinned_absent,0,recompute,6,1000000,6969000
+hash,pinned_absent,0,recompute,7,1000000,8140584
+hash,pinned_absent,0,recompute,8,1000000,7313333
+hash,pinned_absent,0,recompute,9,1000000,6673458
+hash,pinned_absent,0,recompute,10,1000000,6819333
+hash,pinned_absent,0,recompute,11,1000000,6671000
+hash,pinned_target,0,recompute,1,1000000,16588250
+hash,pinned_target,0,recompute,2,1000000,16107666
+hash,pinned_target,0,recompute,3,1000000,17056458
+hash,pinned_target,0,recompute,4,1000000,16229042
+hash,pinned_target,0,recompute,5,1000000,17925666
+hash,pinned_target,0,recompute,6,1000000,16172458
+hash,pinned_target,0,recompute,7,1000000,17851584
+hash,pinned_target,0,recompute,8,1000000,16267292
+hash,pinned_target,0,recompute,9,1000000,16237333
+hash,pinned_target,0,recompute,10,1000000,16116459
+hash,pinned_target,0,recompute,11,1000000,16087167
+
+Fixtures:
+kind,name,depth,mode,pieces,key,fen
+perft,initial,5,bulk,32,0xd39610a2aaa81afb,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+perft,initial,5,apply,32,0xd39610a2aaa81afb,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+perft,kiwipete,4,bulk,32,0x9dc0cf3d161fae6d,r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+perft,kiwipete,4,apply,32,0x9dc0cf3d161fae6d,r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+perft,endgame,5,bulk,10,0x27dbd1981b4bd8e7,8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1
+perft,endgame,5,apply,10,0x27dbd1981b4bd8e7,8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1
+perft,promotions,4,bulk,28,0x8904e9a3e1f4312c,rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8
+perft,promotions,4,apply,28,0x8904e9a3e1f4312c,rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8
+hash,initial,0,recompute,32,0xd39610a2aaa81afb,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+hash,kiwipete,0,recompute,32,0x9dc0cf3d161fae6d,r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+hash,uncapturable_absent,0,recompute,3,0x7a46f0ad8feec516,4k3/8/8/3p4/8/8/8/4K3 w - - 0 1
+hash,uncapturable_target,0,recompute,3,0x7a46f0ad8feec516,4k3/8/8/3p4/8/8/8/4K3 w - d6 0 1
+hash,legal_absent,0,recompute,4,0xd6b9d5f2bb7971c2,4k3/8/8/3pP3/8/8/8/4K3 w - - 0 1
+hash,legal_target,0,recompute,4,0x1deffb2121bee8a4,4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1
+hash,pinned_absent,0,recompute,5,0xc74a7cd969779917,k3r3/8/8/3pP3/8/8/8/4K3 w - - 0 1
+hash,pinned_target,0,recompute,5,0xc74a7cd969779917,k3r3/8/8/3pP3/8/8/8/4K3 w - d6 0 1

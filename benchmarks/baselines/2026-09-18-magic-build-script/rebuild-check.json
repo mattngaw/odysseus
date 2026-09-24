@@ -1,0 +1,36 @@
+{
+  "working_directory": "/Users/matto/Work/odysseus",
+  "command": [
+    "cargo",
+    "build",
+    "--manifest-path",
+    "/Users/matto/Work/odysseus/target/reviews/magic-build-script/rebuild-check/Cargo.toml",
+    "-p",
+    "penteconter",
+    "--lib",
+    "--locked",
+    "--offline",
+    "--target-dir",
+    "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/rebuild-check"
+  ],
+  "generated_files_compared": [
+    "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/after-debug-1/debug/build/penteconter-c196dca4add95d19/out/magic_attacks.rs",
+    "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/after-debug-2/debug/build/penteconter-c196dca4add95d19/out/magic_attacks.rs",
+    "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/after-debug-3/debug/build/penteconter-c196dca4add95d19/out/magic_attacks.rs",
+    "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/after-release-1/release/build/penteconter-f93793cfb8f52cd0/out/magic_attacks.rs",
+    "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/after-release-2/release/build/penteconter-f93793cfb8f52cd0/out/magic_attacks.rs",
+    "/Users/matto/Work/odysseus/target/build-benchmarks/magic-build-script/after-release-3/release/build/penteconter-f93793cfb8f52cd0/out/magic_attacks.rs"
+  ],
+  "sha256": "1feb41b88fe51ef02906f08657717d7d43b2c1e03574cb83f2fa28309e867789",
+  "unchanged_build_skips_generation": true,
+  "inputs_verified": [
+    "build.rs",
+    "src/types/bitboard.rs",
+    "src/types/square.rs",
+    "src/formatting.rs",
+    "src/attacks/reference.rs",
+    "src/attacks/magic/generate.rs",
+    "src/attacks/magic/layout.rs",
+    "src/attacks/magic/multipliers.rs"
+  ]
+}

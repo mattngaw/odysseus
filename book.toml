@@ -1,0 +1,11 @@
+[book]
+title = "Odysseus"
+language = "en"
+src = "docs"
+
+[rust]
+edition = "2024"
+
+[build]
+build-dir = "target/book"
+create-missing = false

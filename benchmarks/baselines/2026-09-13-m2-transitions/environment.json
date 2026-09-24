@@ -1,0 +1,200 @@
+{
+  "captured_at_utc": "2026-09-13T06:00:40.746173+00:00",
+  "working_directory": "/Users/matto/Work/odysseus",
+  "machine": "Apple M2 MacBook Air, 16 GB",
+  "os": {
+    "command": [
+      "sw_vers"
+    ],
+    "exit_code": 0,
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n",
+    "stderr": ""
+  },
+  "rustc": {
+    "command": [
+      "rustc",
+      "-Vv"
+    ],
+    "exit_code": 0,
+    "stdout": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8\n",
+    "stderr": ""
+  },
+  "cargo": {
+    "command": [
+      "cargo",
+      "-V"
+    ],
+    "exit_code": 0,
+    "stdout": "cargo 1.94.0 (85eff7c80 2026-01-15)\n",
+    "stderr": ""
+  },
+  "power_before": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true\n",
+    "stderr": ""
+  },
+  "environment_overrides": {
+    "RUSTFLAGS": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_BUILD_TARGET": null,
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+    "CARGO_PROFILE_RELEASE_LTO": null,
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null
+  },
+  "build_command": "cargo build -p penteconter --release --features perft-experiment --example baseline --example transitions --example hash_traversal --locked --offline",
+  "validation_commands": [
+    "cargo test --workspace --all-targets --all-features --locked --offline",
+    "cargo test --workspace --all-targets --all-features --release --locked --offline",
+    "cargo test --workspace --all-targets --locked --offline",
+    "cargo fmt --all -- --check",
+    "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings"
+  ],
+  "validation_exit_codes": [
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "controls": {
+    "threads": 1,
+    "cpu_affinity": "not set",
+    "frequency": "not controlled",
+    "background_activity": "not controlled",
+    "cache": "no transposition cache; warmed code/data",
+    "pairs": "same case, both strategies consecutively; first alternates each round; case order rotates",
+    "instrumentation": "separate untimed pass; same expansions/transitions asserted for both strategies",
+    "leaf_observation": "paired experiment passes reference to complete Position through black_box; existing baseline passes Position by value",
+    "forward_transition": "same apply_in_place routine; copy strategy first copies Position, make strategy first saves Undo; make/unmake restores every accepted child",
+    "timing_excludes": "initial root copy, FEN parsing, count/restoration assertions, statistics, output"
+  },
+  "source_snapshots": {
+    "before": "target/experiments/make-unmake/before",
+    "board_only_before_refactor": "target/experiments/make-unmake/board-only"
+  },
+  "validation": {
+    "debug": {
+      "passed_tests": 120,
+      "exit_code": 0
+    },
+    "release": {
+      "passed_tests": 120,
+      "exit_code": 0
+    },
+    "default": {
+      "passed_tests": 114,
+      "exit_code": 0
+    }
+  },
+  "runs": [
+    {
+      "report": "eager-before.txt",
+      "command": [
+        "target/experiments/make-unmake/baseline-before",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "aa2b2c288a7229f1331865c3364cb1de036e12e48cbbc7fc1c3265c7a18fb6e6",
+      "start_utc": "2026-09-13T06:00:40.896200+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T06:00:54.069162+00:00"
+    },
+    {
+      "report": "board-only-before-refactor.txt",
+      "command": [
+        "target/experiments/make-unmake/baseline-board-only",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "757d95d540c2c3aea171a204039a4e8b1d6289ea4419ce082b61fc218cc78feb",
+      "start_utc": "2026-09-13T06:00:54.071291+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T06:01:04.315359+00:00"
+    },
+    {
+      "report": "paired.txt",
+      "command": [
+        "target/release/examples/transitions",
+        "--warmup",
+        "3",
+        "--samples",
+        "21"
+      ],
+      "binary_sha256": "0ff5c3b7dd9dd0f674e73753154e8aa4a7133e03516b61ff47278f8bf6af0fe8",
+      "start_utc": "2026-09-13T06:01:04.317520+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T06:01:32.437532+00:00"
+    },
+    {
+      "report": "board-only-current.txt",
+      "command": [
+        "target/release/examples/baseline",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "64f1f20dbabd24b0d1719f8df975fcf29db4a210f4cdd62041cecac5ef5a4666",
+      "start_utc": "2026-09-13T06:01:32.439573+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T06:01:42.193490+00:00"
+    },
+    {
+      "report": "paired-confirmation.txt",
+      "command": [
+        "target/release/examples/transitions",
+        "--warmup",
+        "3",
+        "--samples",
+        "21"
+      ],
+      "binary_sha256": "0ff5c3b7dd9dd0f674e73753154e8aa4a7133e03516b61ff47278f8bf6af0fe8",
+      "start_utc": "2026-09-13T06:01:42.194926+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T06:02:10.097594+00:00"
+    }
+  ],
+  "power_after": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true\n",
+    "stderr": ""
+  },
+  "comparison_method": {
+    "paired_runs": 2,
+    "warmup_rounds_per_run": 3,
+    "pairs_per_case_per_run": 21,
+    "summary": "median of 42 samples per strategy; paired ratios computed before taking median",
+    "quartiles": "linear interpolation at (n-1)*p; descriptive spread, not confidence intervals",
+    "matching_work": "both strategies give identical expanded/transition counts and preserve root; all timing samples assert published leaf count and full root equality outside timing",
+    "position_bytes": 152,
+    "undo_bytes": 24
+  },
+  "assembly_check": {
+    "command": "otool -tvV target/release/examples/transitions",
+    "forward": "Both strategies call the identical apply_in_place symbol, with old/new metadata hash calls and resulting key stores; no full recomputation in the forward release routine.",
+    "copy": "Untimed-counter-disabled visit has a 400-byte frame; emitted code copies 152 bytes from parent to temporary, applies the move, then copies 152 bytes to child storage.",
+    "unmake": "Untimed-counter-disabled visit has a 128-byte frame; saves undo fields, calls the same forward routine, then calls unmake. No full Position copy in this branch.",
+    "unmake_restore": "Board removal/set operations and restoration of saved metadata and key are present.",
+    "limitation": "Static assembly inspection, not dynamic instruction or hardware-counter profiling."
+  }
+}

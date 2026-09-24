@@ -1,0 +1,9 @@
+name,depth,mode,leaves,expanded,transitions
+initial,5,bulk,4865609,206604,206603
+initial,5,apply,4865609,206604,5072212
+kiwipete,4,bulk,4085603,99950,99949
+kiwipete,4,apply,4085603,99950,4185552
+endgame,5,bulk,674624,46256,46255
+endgame,5,apply,674624,46256,720879
+promotions,4,bulk,2103487,63910,63909
+promotions,4,apply,2103487,63910,2167396

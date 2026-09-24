@@ -1,1 +1,11 @@
-/target
+/target/
+/AGENTS.md
+/.venv/
+/dist/
+/output/
+/tmp/
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/

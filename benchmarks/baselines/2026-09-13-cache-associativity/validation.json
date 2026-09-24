@@ -1,0 +1,88 @@
+[
+  {
+    "name": "debug",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--locked",
+      "--offline"
+    ],
+    "cwd": "/Users/matto/Work/odysseus",
+    "exit_code": 0,
+    "passed_tests": 147,
+    "seconds": 49.6
+  },
+  {
+    "name": "release",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--release",
+      "--locked",
+      "--offline"
+    ],
+    "cwd": "/Users/matto/Work/odysseus",
+    "exit_code": 0,
+    "passed_tests": 145,
+    "seconds": 12.96
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "/Users/matto/Work/odysseus",
+    "exit_code": 0,
+    "passed_tests": 0,
+    "seconds": 0.19
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--all-features",
+      "--locked",
+      "--offline",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/Users/matto/Work/odysseus",
+    "exit_code": 0,
+    "passed_tests": 0,
+    "seconds": 0.47
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "-p",
+      "penteconter",
+      "--release",
+      "--features",
+      "perft-experiment",
+      "--example",
+      "hash_traversal",
+      "--locked",
+      "--offline"
+    ],
+    "cwd": "/Users/matto/Work/odysseus",
+    "exit_code": 0,
+    "passed_tests": 0,
+    "seconds": 0.07
+  }
+]

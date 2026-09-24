@@ -1,0 +1,115 @@
+{
+  "captured_at_utc": "2026-09-13T05:11:52.525984+00:00",
+  "working_directory": "/Users/matto/Work/odysseus",
+  "hardware": {
+    "command": [
+      "/usr/sbin/system_profiler",
+      "SPHardwareDataType"
+    ],
+    "exit_code": 0,
+    "stdout": "Model Name: MacBook Air\nModel Identifier: Mac14,2\nChip: Apple M2\nTotal Number of Cores: 8 (4 Performance and 4 Efficiency)\nMemory: 16 GB",
+    "stderr": "2026-09-13 00:11:52.517 system_profiler[13250:10539944] Error fetching hw.cpufamily: -1"
+  },
+  "os": {
+    "command": [
+      "sw_vers"
+    ],
+    "exit_code": 0,
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83",
+    "stderr": ""
+  },
+  "rustc": {
+    "command": [
+      "rustc",
+      "-Vv"
+    ],
+    "exit_code": 0,
+    "stdout": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "stderr": ""
+  },
+  "cargo": {
+    "command": [
+      "cargo",
+      "-V"
+    ],
+    "exit_code": 0,
+    "stdout": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "stderr": ""
+  },
+  "power_before_runs": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true",
+    "stderr": ""
+  },
+  "environment_overrides": {
+    "RUSTFLAGS": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_BUILD_TARGET": null,
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+    "CARGO_PROFILE_RELEASE_LTO": null,
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null,
+    "CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS": null
+  },
+  "build_command": "cargo build -p penteconter --release --example baseline --locked --offline --verbose",
+  "runs": [
+    {
+      "report": "before.txt",
+      "command": "/tmp/penteconter-baseline-before-incremental --warmup 3 --samples 21 --hash-iterations 5000000",
+      "binary_sha256": "671562cc1379889c5de78114aeeb6ad272b495192f17c108d760f3fd6ef765dd",
+      "source_identity": "../2026-09-12-m2/source_files.sha256",
+      "exit_code": 0,
+      "samples_per_workload": 21,
+      "total_samples": 336,
+      "warmup_rounds": 3,
+      "hash_iterations_per_sample": 5000000
+    },
+    {
+      "report": "after.txt",
+      "command": "./target/release/examples/baseline --warmup 3 --samples 21 --hash-iterations 5000000",
+      "binary_sha256": "243621174e0a4f07c7658dc5e0969a1e347ac92464025307efec74b05bedec6d",
+      "source_identity": "source_files.sha256",
+      "exit_code": 0,
+      "samples_per_workload": 21,
+      "total_samples": 336,
+      "warmup_rounds": 3,
+      "hash_iterations_per_sample": 5000000
+    }
+  ],
+  "controls": {
+    "thread_count": 1,
+    "cpu_affinity": "not set",
+    "frequency": "not controlled",
+    "background_activity": "not controlled",
+    "cache_state": "warmed by repeated workloads",
+    "run_order": "before, then after"
+  },
+  "assembly_check": {
+    "release_apply": "Contains old/new metadata hash calls and resulting key store; no full recomputation call.",
+    "source": "otool -tvV target/release/examples/baseline"
+  },
+  "validation_commands": [
+    "cargo test --workspace --all-targets --locked --offline",
+    "cargo test --workspace --all-targets --release --locked --offline",
+    "cargo fmt --all -- --check",
+    "cargo clippy --workspace --all-targets --locked --offline -- -D warnings"
+  ],
+  "validation_exit_codes": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "total_tests_per_build": 109,
+  "post_run_observation_at_utc": "2026-09-13T05:14:29.621962+00:00",
+  "power_after_runs": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true",
+  "comparison": "comparison.csv",
+  "position_size_bytes": {
+    "before": 144,
+    "after": 152
+  }
+}

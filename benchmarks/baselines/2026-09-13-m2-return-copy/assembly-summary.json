@@ -1,0 +1,82 @@
+{
+  "before": [
+    {
+      "symbol": "__ZN11penteconter8position10transition10reversible49_$LT$impl$u20$penteconter..position..Position$GT$6unmake17h12adf8d91d9cf398E",
+      "static_instruction_lines": 115,
+      "first_instruction": "000000010000518c\tstp\tx24, x23, [sp, #-0x40]!"
+    },
+    {
+      "symbol": "__ZN11penteconter8position10transition49_$LT$impl$u20$penteconter..position..Position$GT$14apply_in_place17hf260e2ac306c04eeE",
+      "static_instruction_lines": 360,
+      "first_instruction": "0000000100005358\tsub\tsp, sp, #0x70"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17h718f14a29adc3fa2E",
+      "static_instruction_lines": 115,
+      "first_instruction": "00000001000079ec\tsub\tsp, sp, #0x190"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17ha1fe61328753ad5eE",
+      "static_instruction_lines": 130,
+      "first_instruction": "0000000100007bb8\tsub\tsp, sp, #0x80"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17hb873e551cb111df3E",
+      "static_instruction_lines": 121,
+      "first_instruction": "0000000100007dc0\tsub\tsp, sp, #0x1a0"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17hdd4eb245d8b403a9E",
+      "static_instruction_lines": 126,
+      "first_instruction": "0000000100007fa4\tsub\tsp, sp, #0x80"
+    }
+  ],
+  "direct": [
+    {
+      "symbol": "__ZN11penteconter8position10transition10reversible49_$LT$impl$u20$penteconter..position..Position$GT$6unmake17h12adf8d91d9cf398E",
+      "static_instruction_lines": 115,
+      "first_instruction": "000000010000518c\tstp\tx24, x23, [sp, #-0x40]!"
+    },
+    {
+      "symbol": "__ZN11penteconter8position10transition49_$LT$impl$u20$penteconter..position..Position$GT$14apply_in_place17hf260e2ac306c04eeE",
+      "static_instruction_lines": 360,
+      "first_instruction": "000000010000541c\tsub\tsp, sp, #0x70"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17h718f14a29adc3fa2E",
+      "static_instruction_lines": 91,
+      "first_instruction": "000000010000758c\tsub\tsp, sp, #0xf0"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17ha1fe61328753ad5eE",
+      "static_instruction_lines": 130,
+      "first_instruction": "00000001000076f8\tsub\tsp, sp, #0x80"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17hb873e551cb111df3E",
+      "static_instruction_lines": 95,
+      "first_instruction": "0000000100007900\tsub\tsp, sp, #0xf0"
+    },
+    {
+      "symbol": "__ZN11penteconter5perft21transition_experiment5visit17hdd4eb245d8b403a9E",
+      "static_instruction_lines": 126,
+      "first_instruction": "0000000100007a7c\tsub\tsp, sp, #0x80"
+    },
+    {
+      "symbol": "__ZN11penteconter8position10transition49_$LT$impl$u20$penteconter..position..Position$GT$14apply_in_place17hf260e2ac306c04eeE",
+      "static_instruction_lines": 233,
+      "first_instruction": "0000000100007c74\tsub\tsp, sp, #0x70"
+    }
+  ],
+  "interpretation": {
+    "before": "Copy visitor frame 400 B; both leaf and recursive branches copy 152 B parent to temporary, call apply_in_place, then copy 152 B temporary to child.",
+    "direct": "Copy visitor frame 240 B; each branch copies 152 B parent to local child and calls the same apply_in_place routine. No temporary-to-child copy.",
+    "scope": "Static assembly from frozen release binaries on aarch64-apple-darwin; not dynamic instruction or cache-miss profiling.",
+    "failed_trials": [
+      "inline(never) on apply retained both copies in an outlined wrapper.",
+      "inline(always) on apply_in_place retained both copies in expanded apply.",
+      "inline(always) on both apply and apply_in_place retained both copies in expanded visitors."
+    ],
+    "decision": "Retain direct child construction only in the opt-in transition experiment. No observed throughput improvement justifying default traversal changes."
+  }
+}

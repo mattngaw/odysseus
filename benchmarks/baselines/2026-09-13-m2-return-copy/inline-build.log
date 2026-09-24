@@ -1,0 +1,15 @@
+   Compiling penteconter v0.1.0 (/Users/matto/Work/odysseus/crates/penteconter)
+warning: constant evaluation is taking a long time
+  --> crates/penteconter/src/attacks/reference.rs:35:24
+   |
+35 |         let mut file = square.file() as i8 + df;
+   |                        ^^^^^^^^^^^^^ the const evaluator is currently interpreting this expression
+   |
+help: the constant being evaluated
+  --> crates/penteconter/src/attacks/magic.rs:40:1
+   |
+40 | static ATTACKS: [Bitboard; TABLE_LEN] = build_attacks();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `penteconter` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 7.36s

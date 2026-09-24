@@ -1,0 +1,17 @@
+kind,name,depth,mode,before_median_ns,after_median_ns,time_increase_percent,before_p25_ns,before_p75_ns,after_p25_ns,after_p75_ns
+perft,initial,5,bulk,17.306,24.333,40.6,16.752,19.387,24.285,24.756
+perft,initial,5,apply,29.265,41.324,41.21,27.816,34.329,41.163,43.866
+perft,kiwipete,4,bulk,20.081,24.339,21.2,18.603,29.359,24.119,24.694
+perft,kiwipete,4,apply,33.34,42.255,26.74,30.410,36.617,41.901,42.467
+perft,endgame,5,bulk,23.053,29.663,28.67,21.635,27.209,29.517,30.780
+perft,endgame,5,apply,35.218,48.345,37.27,33.934,39.097,48.037,50.332
+perft,promotions,4,bulk,19.248,24.489,27.23,18.604,21.729,24.356,24.910
+perft,promotions,4,apply,32.992,41.596,26.08,29.851,35.524,41.207,42.779
+hash,initial,0,recompute,37.362,36.51,-2.28,35.884,40.268,36.302,37.334
+hash,kiwipete,0,recompute,40.667,36.421,-10.44,36.786,44.910,36.287,37.968
+hash,uncapturable_absent,0,recompute,5.325,5.253,-1.35,5.021,6.110,5.234,5.494
+hash,uncapturable_target,0,recompute,5.985,6.178,3.22,5.846,7.590,6.140,6.459
+hash,legal_absent,0,recompute,6.355,5.903,-7.11,5.771,8.045,5.838,6.058
+hash,legal_target,0,recompute,16.61,17.766,6.96,15.562,26.630,17.597,18.556
+hash,pinned_absent,0,recompute,7.42,6.871,-7.4,7.191,8.319,6.837,7.001
+hash,pinned_target,0,recompute,17.756,18.323,3.19,16.566,19.088,18.245,18.728

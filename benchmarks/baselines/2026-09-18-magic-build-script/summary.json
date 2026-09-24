@@ -1,0 +1,70 @@
+{
+  "profiles": {
+    "debug": {
+      "before": {
+        "seconds": [
+          9.152321625035256,
+          8.646371499984525,
+          8.542940207989886
+        ],
+        "median_seconds": 8.646371499984525,
+        "const_eval_warnings_per_run": [
+          1,
+          1,
+          1
+        ]
+      },
+      "after": {
+        "seconds": [
+          2.3318265409907326,
+          2.297993874992244,
+          2.2283573750173673
+        ],
+        "median_seconds": 2.297993874992244,
+        "const_eval_warnings_per_run": [
+          0,
+          0,
+          0
+        ]
+      },
+      "speedup": 3.7625737797119707,
+      "reduction_percent": 73.42244807551519
+    },
+    "release": {
+      "before": {
+        "seconds": [
+          6.790894249919802,
+          6.834321584086865,
+          6.76174754195381
+        ],
+        "median_seconds": 6.790894249919802,
+        "const_eval_warnings_per_run": [
+          1,
+          1,
+          1
+        ]
+      },
+      "after": {
+        "seconds": [
+          2.053187625017017,
+          1.8994900829857215,
+          2.051864542067051
+        ],
+        "median_seconds": 2.051864542067051,
+        "const_eval_warnings_per_run": [
+          0,
+          0,
+          0
+        ]
+      },
+      "speedup": 3.309621132727722,
+      "reduction_percent": 69.78506119291606
+    }
+  },
+  "notes": [
+    "Three sequential fresh-target builds per profile and implementation.",
+    "Library-only Cargo build, default toolchain/profile settings, locked and offline.",
+    "Existing build caches preserved; OS page caches not flushed.",
+    "All before measurements precede after measurements; this is a local comparison, not a claim about other machines."
+  ]
+}

@@ -1,0 +1,16 @@
+[package]
+name = "penteconter"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+perft-experiment = []
+
+[[example]]
+name = "hash_traversal"
+required-features = ["perft-experiment"]
+
+[[example]]
+name = "transitions"
+required-features = ["perft-experiment"]

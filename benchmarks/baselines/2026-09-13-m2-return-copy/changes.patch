@@ -1,0 +1,44 @@
+--- a/crates/penteconter/src/perft/transition_experiment.rs
++++ b/crates/penteconter/src/perft/transition_experiment.rs
+@@ -5,6 +5,7 @@
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+ pub enum Strategy {
++    /// Copy into a local child, then update it without returning another Position.
+     CopyApply,
+     MakeUnmake,
+ }
+@@ -29,6 +30,8 @@
+ /// each complete leaf through black_box: both placements and keys are accessible,
+ /// without requiring a by-value Position copy just to observe make/unmake's leaf.
+ /// Bulk counts final legal moves without performing their full transitions.
++/// Copy/apply constructs its child at the call site; the default perft traversal
++/// retains the returning `Position::apply` wrapper for comparison.
+ ///
+ /// Statistics and strategy selection specialize outside the recursive loop.
+ pub fn run(
+@@ -85,7 +88,8 @@
+             position.unmake(mv, undo);
+             count
+         } else {
+-            let mut child = position.apply(mv);
++            let mut child = *position;
++            child.apply_in_place(mv);
+             descend::<UNMAKE, TRACK>(&mut child, remaining, mode, result)
+         };
+         nodes = nodes.checked_add(count).expect("perft node count overflow");
+--- a/crates/penteconter/src/position/transition.rs
++++ b/crates/penteconter/src/position/transition.rs
+@@ -28,10 +28,10 @@
+         next
+     }
+ 
+-    // Shared forward operation. Private: callers must uphold apply's contracts.
++    // Shared forward operation. Callers must uphold apply's contracts.
+     // Check counter overflow before any mutation so that failure leaves self intact.
+     #[inline]
+-    fn apply_in_place(&mut self, mv: Move) {
++    pub(crate) fn apply_in_place(&mut self, mv: Move) {
+         let from = mv.from();
+         let to = mv.to();
+         let piece = self.board.piece_at(from).expect("source must be occupied");

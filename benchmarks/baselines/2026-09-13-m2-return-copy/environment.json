@@ -1,0 +1,255 @@
+{
+  "captured_at_utc": "2026-09-13T15:37:45.127114+00:00",
+  "working_directory": "/Users/matto/Work/odysseus",
+  "machine": "Apple M2 MacBook Air, 16 GB",
+  "rustc": {
+    "command": [
+      "rustc",
+      "-Vv"
+    ],
+    "exit_code": 0,
+    "stdout": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8\n",
+    "stderr": ""
+  },
+  "cargo": {
+    "command": [
+      "cargo",
+      "-V"
+    ],
+    "exit_code": 0,
+    "stdout": "cargo 1.94.0 (85eff7c80 2026-01-15)\n",
+    "stderr": ""
+  },
+  "os": {
+    "command": [
+      "sw_vers"
+    ],
+    "exit_code": 0,
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n",
+    "stderr": ""
+  },
+  "power_before": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true\n",
+    "stderr": ""
+  },
+  "environment_overrides": {
+    "RUSTFLAGS": null,
+    "CARGO_ENCODED_RUSTFLAGS": null,
+    "CARGO_BUILD_TARGET": null,
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL": null,
+    "CARGO_PROFILE_RELEASE_LTO": null,
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS": null
+  },
+  "build_command": "cargo build -p penteconter --release --features perft-experiment --example transitions --example baseline --locked --offline",
+  "source_snapshot": "target/experiments/return-copy/before",
+  "runs": [
+    {
+      "report": "transitions-1-before.txt",
+      "command": [
+        "target/experiments/return-copy/transitions-before",
+        "--warmup",
+        "3",
+        "--samples",
+        "21"
+      ],
+      "binary_sha256": "0ff5c3b7dd9dd0f674e73753154e8aa4a7133e03516b61ff47278f8bf6af0fe8",
+      "start_utc": "2026-09-13T15:37:45.274039+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T15:38:13.355243+00:00"
+    },
+    {
+      "report": "transitions-2-direct.txt",
+      "command": [
+        "target/experiments/return-copy/transitions-direct",
+        "--warmup",
+        "3",
+        "--samples",
+        "21"
+      ],
+      "binary_sha256": "27eb0fbc8069f17cca17d8831c2a55d98ed68b8f506f2f450cac113f5af2b622",
+      "start_utc": "2026-09-13T15:38:13.357359+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T15:38:41.426226+00:00"
+    },
+    {
+      "report": "transitions-3-direct.txt",
+      "command": [
+        "target/experiments/return-copy/transitions-direct",
+        "--warmup",
+        "3",
+        "--samples",
+        "21"
+      ],
+      "binary_sha256": "27eb0fbc8069f17cca17d8831c2a55d98ed68b8f506f2f450cac113f5af2b622",
+      "start_utc": "2026-09-13T15:38:41.427865+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T15:39:09.540048+00:00"
+    },
+    {
+      "report": "transitions-4-before.txt",
+      "command": [
+        "target/experiments/return-copy/transitions-before",
+        "--warmup",
+        "3",
+        "--samples",
+        "21"
+      ],
+      "binary_sha256": "0ff5c3b7dd9dd0f674e73753154e8aa4a7133e03516b61ff47278f8bf6af0fe8",
+      "start_utc": "2026-09-13T15:39:09.542189+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T15:39:37.811860+00:00"
+    },
+    {
+      "report": "baseline-1-before.txt",
+      "command": [
+        "target/experiments/return-copy/baseline-before",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "64f1f20dbabd24b0d1719f8df975fcf29db4a210f4cdd62041cecac5ef5a4666",
+      "start_utc": "2026-09-13T15:39:37.813996+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T15:39:47.726493+00:00"
+    },
+    {
+      "report": "baseline-2-direct.txt",
+      "command": [
+        "target/experiments/return-copy/baseline-direct",
+        "--warmup",
+        "3",
+        "--samples",
+        "11",
+        "--hash-iterations",
+        "1000000"
+      ],
+      "binary_sha256": "74505eb6fad8d3a49462ab9a7921d2602d60279aa2d74ff91d480ff40ad13442",
+      "start_utc": "2026-09-13T15:39:47.728651+00:00",
+      "exit_code": 0,
+      "end_utc": "2026-09-13T15:39:57.616245+00:00"
+    }
+  ],
+  "controls": {
+    "threads": 1,
+    "order": "before, direct, direct, before; separate pilot excluded from summary",
+    "within_run": "copy/apply and make/unmake paired consecutively, first alternates each round, case order rotates",
+    "cpu_affinity": "not set",
+    "frequency": "not controlled",
+    "background_activity": "not controlled; no concurrent agent builds/tests",
+    "leaf_observation": "transition comparison: reference to complete Position; normal baseline: by value (unchanged)",
+    "cache": "no transposition cache; warmed code/data",
+    "timing": "buffer allocation and traversal; parsing, root copy, assertions, diagnostics and printing excluded",
+    "source_change": "Only experimental copy traversal constructs a local child then calls apply_in_place. Default perft and make/unmake unchanged."
+  },
+  "power_after": {
+    "command": [
+      "pmset",
+      "-g",
+      "batt"
+    ],
+    "exit_code": 0,
+    "stdout": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=36110435)\t80%; AC attached; not charging present: true\n",
+    "stderr": ""
+  },
+  "validation": [
+    {
+      "name": "debug",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked",
+        "--offline"
+      ],
+      "exit_code": 0,
+      "passed_tests": 120
+    },
+    {
+      "name": "release",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--release",
+        "--locked",
+        "--offline"
+      ],
+      "exit_code": 0,
+      "passed_tests": 120
+    },
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked",
+        "--offline",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "final-build",
+      "command": [
+        "cargo",
+        "build",
+        "-p",
+        "penteconter",
+        "--release",
+        "--features",
+        "perft-experiment",
+        "--example",
+        "transitions",
+        "--example",
+        "baseline",
+        "--locked",
+        "--offline"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "transitions_final_binary_sha256": "b41dd636e5bcf967aa48b14878f7d1649de3785010e7f7fae089c73dc9ddf596",
+  "transitions_final_binary_matches_timed": false,
+  "baseline_final_binary_sha256": "74505eb6fad8d3a49462ab9a7921d2602d60279aa2d74ff91d480ff40ad13442",
+  "baseline_final_binary_matches_timed": true,
+  "final_code_verification": {
+    "command": "otool -s __TEXT __text <executable>",
+    "text_sections_identical": true,
+    "note": "Final source adds three rustdoc lines to transition_experiment.rs after timing. Panic source-line metadata changes the binary hash; machine-code text is byte-for-byte identical. No source behavior changed after timing. source_files.sha256 describes final reviewed source; measured_source_files.sha256 describes timed source."
+  },
+  "analysis": {
+    "comparison_csv": "comparison.csv",
+    "summary": "42 samples per variant pooled from two runs, before/local/local/before order. Pilot excluded. Median of raw copy times determines NPS. Cross-binary before/after ratios are unpaired; copy vs make/unmake ratios within a binary are paired.",
+    "decision": "Keep explicit local child only in opt-in transition experiment, not default perft. Removed copy did not improve throughput.",
+    "limits": "Four perft fixtures on one M2 machine; scheduler/frequency/background activity uncontrolled. Not a search workload. Smaller stack frames/static instruction counts do not identify the runtime bottleneck."
+  }
+}

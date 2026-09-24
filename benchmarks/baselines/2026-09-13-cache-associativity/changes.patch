@@ -1,0 +1,729 @@
+diff --git a/crates/penteconter/examples/hash_traversal.rs b/crates/penteconter/examples/hash_traversal.rs
+--- a/crates/penteconter/examples/hash_traversal.rs
++++ b/crates/penteconter/examples/hash_traversal.rs
+@@ -5,18 +5,24 @@
+     Position,
+     perft::{
+         LeafMode,
+-        experiments::hash_traversal::{self, Cache, DepthStats, Legality},
++        experiments::hash_traversal::{self, Associativity, Cache, DepthStats, Legality},
+     },
+ };
+ use std::{env, hint::black_box, process::ExitCode, time::Instant};
+ 
+-const USAGE: &str = "Usage: hash_traversal [--warmup N] [--samples N] [--cache-mib N] [--deeper]
++const USAGE: &str =
++    "Usage: hash_traversal [--warmup N] [--samples N] [--cache-mib N] [--deeper] [--compare-ways]
+ 
+ Defaults: 3 warmup rounds, 11 measured rounds, 16 MiB cache.
+ Cache MiB must be a power of two, at most 1024. --deeper adds one ply.
+ Use --release --features perft-experiment. Single-threaded; no CPU pinning.
+ Both legality variants use the same traversal, full retained Position updates,
+-leaf compiler barriers, direct-mapped always-replace cache, and move order.
++leaf compiler barriers, and move order. Default: direct-mapped always-replace.
++--compare-ways compares uncached and 1/2/4-way caches with placement-only legality.
++All ways reuse the same allocation and 32-byte entry size. Wider buckets replace
++an exact key/depth match, otherwise the first empty entry, otherwise the shallowest
++entry (ties: first slot). New entries are always admitted. Associativity dispatch
++occurs once outside recursion. No extra bucket alignment beyond 32-byte entries.
+ Cache entries: 32 bytes, full 64-bit key plus exact remaining depth, no state
+ verification against true Zobrist collisions. No draws or search bounds.
+ Each sample starts with an empty table. Allocation is outside timing; clearing
+@@ -57,6 +63,7 @@
+     samples: usize,
+     cache_mib: usize,
+     deeper: bool,
++    compare_ways: bool,
+ }
+ 
+ fn parse() -> Result<Option<Options>, String> {
+@@ -65,6 +72,7 @@
+         samples: 11,
+         cache_mib: 16,
+         deeper: false,
++        compare_ways: false,
+     };
+     let mut seen = Vec::new();
+     let mut args = env::args().skip(1);
+@@ -76,6 +84,10 @@
+             return Err(format!("repeated argument: {arg}"));
+         }
+         seen.push(arg.clone());
++        if arg == "--compare-ways" {
++            options.compare_ways = true;
++            continue;
++        }
+         if arg == "--deeper" {
+             options.deeper = true;
+             continue;
+@@ -114,7 +126,7 @@
+     leaves: u64,
+     mode: LeafMode,
+     legality: Legality,
+-    cached: bool,
++    ways: Option<Associativity>,
+     samples: Vec<Sample>,
+     stats: Vec<DepthStats>,
+ }
+@@ -122,7 +134,7 @@
+ impl Case {
+     fn label(&self) -> String {
+         format!(
+-            "{},{},{},{},{}",
++            "{},{},{},{},{},{}",
+             self.name,
+             self.depth,
+             if self.mode == LeafMode::Apply {
+@@ -135,14 +147,19 @@
+             } else {
+                 "placement"
+             },
+-            if self.cached { "cached" } else { "uncached" }
++            if self.ways.is_some() {
++                "cached"
++            } else {
++                "uncached"
++            },
++            self.ways.map_or(0, Associativity::ways)
+         )
+     }
+ 
+     fn measure(&self, cache: &mut Cache) -> Sample {
+-        let clear_ns = if self.cached {
++        let clear_ns = if let Some(ways) = self.ways {
+             let start = Instant::now();
+-            cache.clear();
++            cache.reset(ways);
+             start.elapsed().as_nanos()
+         } else {
+             0
+@@ -153,7 +170,7 @@
+             black_box(self.depth),
+             black_box(self.mode),
+             self.legality,
+-            self.cached.then_some(cache),
++            self.ways.map(|_| cache),
+             false,
+         );
+         let nodes = black_box(result.nodes);
+@@ -176,11 +193,26 @@
+ fn execute(options: Options) {
+     let mut cache = Cache::new(options.cache_mib * 1024 * 1024 / 32);
+     assert_eq!(cache.bytes(), options.cache_mib * 1024 * 1024);
++    let cache_configs = if options.compare_ways {
++        vec![
++            None,
++            Some(Associativity::One),
++            Some(Associativity::Two),
++            Some(Associativity::Four),
++        ]
++    } else {
++        vec![None, Some(Associativity::One)]
++    };
++    let legalities = if options.compare_ways {
++        &[Legality::PlacementOnly][..]
++    } else {
++        &[Legality::Eager, Legality::PlacementOnly][..]
++    };
+     let mut cases = Vec::new();
+     for (name, fen, depth, counts) in FIXTURES {
+         for mode in [LeafMode::Bulk, LeafMode::Apply] {
+-            for cached in [false, true] {
+-                for legality in [Legality::Eager, Legality::PlacementOnly] {
++            for &ways in &cache_configs {
++                for &legality in legalities {
+                     cases.push(Case {
+                         name,
+                         position: fen.parse().unwrap(),
+@@ -188,7 +220,7 @@
+                         leaves: counts[usize::from(options.deeper)],
+                         mode,
+                         legality,
+-                        cached,
++                        ways,
+                         samples: Vec::new(),
+                         stats: Vec::new(),
+                     });
+@@ -213,33 +245,34 @@
+     // Separate diagnostics, including deterministic agreement between variants.
+     for index in 0..cases.len() {
+         let case = &mut cases[index];
+-        cache.clear();
++        cache.reset(case.ways.unwrap_or(Associativity::One));
+         let result = hash_traversal::run(
+             &case.position,
+             case.depth,
+             case.mode,
+             case.legality,
+-            case.cached.then_some(&mut cache),
++            case.ways.map(|_| &mut cache),
+             true,
+         );
+         assert_eq!(result.nodes, case.leaves);
+         case.stats = result.by_depth;
+-        if index % 2 == 1 {
++        if !options.compare_ways && index % 2 == 1 {
+             assert_eq!(cases[index].stats, cases[index - 1].stats);
+         }
+     }
+-    println!("Penteconter hash traversal experiment v1\n{USAGE}");
++    println!("Penteconter hash traversal experiment v2\n{USAGE}");
+     println!(
+-        "warmup={},samples={},cache_bytes={},position_bytes={},deeper={}",
++        "warmup={},samples={},cache_bytes={},position_bytes={},deeper={},compare_ways={}",
+         options.warmup,
+         options.samples,
+         cache.bytes(),
+         size_of::<Position>(),
+-        options.deeper
++        options.deeper,
++        options.compare_ways
+     );
+     println!("\nSummary:");
+     println!(
+-        "name,depth,mode,legality,cache,leaves,min_ns,p25_ns,median_ns,p75_ns,max_ns,median_clear_ns,median_total_ns"
++        "name,depth,mode,legality,cache,ways,leaves,min_ns,p25_ns,median_ns,p75_ns,max_ns,median_clear_ns,median_total_ns"
+     );
+     for case in &cases {
+         let mut traverse: Vec<_> = case.samples.iter().map(|s| s.traverse_ns).collect();
+@@ -266,7 +299,7 @@
+         );
+     }
+     println!("\nRaw samples:");
+-    println!("name,depth,mode,legality,cache,sample,traverse_ns,clear_ns,total_ns");
++    println!("name,depth,mode,legality,cache,ways,sample,traverse_ns,clear_ns,total_ns");
+     for case in &cases {
+         for (i, sample) in case.samples.iter().enumerate() {
+             println!(
+@@ -281,7 +314,7 @@
+     }
+     println!("\nUntimed diagnostics:");
+     println!(
+-        "name,depth,mode,legality,cache,remaining_depth,visited,expanded,hits,child_positions"
++        "name,depth,mode,legality,cache,ways,remaining_depth,visited,expanded,hits,child_positions"
+     );
+     for case in &cases {
+         for (depth, stats) in case.stats.iter().enumerate().rev() {
+diff --git a/crates/penteconter/src/perft/experiments/hash_traversal/cache/mod.rs b/crates/penteconter/src/perft/experiments/hash_traversal/cache/mod.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/penteconter/src/perft/experiments/hash_traversal/cache/mod.rs
+@@ -0,0 +1,115 @@
++//! Equal-capacity perft caches with one, two, or four entries per bucket.
++
++/// Number of candidate entries examined for a key.
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++pub enum Associativity {
++    One,
++    Two,
++    Four,
++}
++
++impl Associativity {
++    pub const fn ways(self) -> usize {
++        match self {
++            Self::One => 1,
++            Self::Two => 2,
++            Self::Four => 4,
++        }
++    }
++}
++
++// Preserve the baseline's size and alignment for every configuration. Buckets
++// are contiguous but have no additional cache-line alignment guarantee.
++// Depth zero marks an empty entry and is never cached.
++#[repr(C, align(32))]
++#[derive(Clone, Copy, Default)]
++struct Entry {
++    key: u64,
++    nodes: u64,
++    depth: u8,
++}
++
++/// Bounded perft cache, with a full 64-bit key and exact remaining depth.
++///
++/// Storage replaces an existing key/depth match, otherwise the first empty
++/// entry, otherwise the shallowest entry (ties choose the first slot). A new
++/// entry is always admitted. One way reduces to direct-mapped always-replace.
++///
++/// This is a probabilistic experiment: full-key Zobrist collisions are not
++/// resolved by state comparison. It ignores draws and search bounds.
++pub struct Cache {
++    entries: Vec<Entry>,
++    associativity: Associativity,
++}
++
++impl Cache {
++    /// Creates a direct-mapped cache. `entries` must be a nonzero power of two;
++    /// each entry occupies 32 bytes. Allocation occurs only at construction.
++    pub fn new(entries: usize) -> Self {
++        assert!(entries.is_power_of_two());
++        Self {
++            entries: vec![Entry::default(); entries],
++            associativity: Associativity::One,
++        }
++    }
++
++    /// Allocated entry storage, excluding this small owning handle.
++    pub fn bytes(&self) -> usize {
++        self.entries.len() * size_of::<Entry>()
++    }
++
++    pub const fn associativity(&self) -> Associativity {
++        self.associativity
++    }
++
++    pub fn clear(&mut self) {
++        self.entries.fill(Entry::default());
++    }
++
++    /// Clears all entries and selects a bucket width, reusing the allocation.
++    /// Panics before changing the cache if it has fewer entries than ways.
++    pub fn reset(&mut self, associativity: Associativity) {
++        assert!(self.entries.len() >= associativity.ways());
++        self.clear();
++        self.associativity = associativity;
++    }
++
++    // WAYS is selected once at traversal entry, allowing specialized probes.
++    fn bucket<const WAYS: usize>(&self, key: u64) -> usize {
++        debug_assert_eq!(WAYS, self.associativity.ways());
++        (key as usize & (self.entries.len() / WAYS - 1)) * WAYS
++    }
++
++    pub(super) fn probe<const WAYS: usize>(&self, key: u64, depth: u8) -> Option<u64> {
++        let start = self.bucket::<WAYS>(key);
++        for entry in &self.entries[start..start + WAYS] {
++            if entry.depth != 0 && entry.key == key && entry.depth == depth {
++                return Some(entry.nodes);
++            }
++        }
++        None
++    }
++
++    pub(super) fn store<const WAYS: usize>(&mut self, key: u64, depth: u8, nodes: u64) {
++        debug_assert_ne!(depth, 0);
++        let start = self.bucket::<WAYS>(key);
++        let bucket = &mut self.entries[start..start + WAYS];
++        let mut victim = 0;
++        for index in 0..WAYS {
++            let entry = &bucket[index];
++            if entry.depth == depth && entry.key == key {
++                victim = index;
++                break;
++            }
++            // Empty entries have depth zero, so the same minimum also selects
++            // the first empty entry. Still inspect later slots for a match.
++            if entry.depth < bucket[victim].depth {
++                victim = index;
++            }
++        }
++        bucket[victim] = Entry { key, nodes, depth };
++    }
++}
++
++#[cfg(test)]
++mod tests;
+diff --git a/crates/penteconter/src/perft/experiments/hash_traversal/cache/tests.rs b/crates/penteconter/src/perft/experiments/hash_traversal/cache/tests.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/penteconter/src/perft/experiments/hash_traversal/cache/tests.rs
+@@ -0,0 +1,126 @@
++use super::*;
++
++#[test]
++fn every_layout_uses_the_same_storage_and_reset_preserves_the_allocation() {
++    let mut cache = Cache::new(1024);
++    let allocation = cache.entries.as_ptr();
++    assert_eq!(size_of::<Entry>(), 32);
++    for ways in [Associativity::One, Associativity::Two, Associativity::Four] {
++        cache.reset(ways);
++        assert_eq!(cache.associativity(), ways);
++        assert_eq!(cache.bytes(), 32 * 1024);
++        assert_eq!(cache.entries.as_ptr(), allocation);
++        assert!(cache.entries.iter().all(|entry| entry.depth == 0));
++        cache.entries[0] = Entry {
++            key: 7,
++            depth: 1,
++            nodes: 42,
++        };
++    }
++}
++
++fn check_keys_and_depth<const WAYS: usize>(ways: Associativity) {
++    let mut cache = Cache::new(WAYS);
++    cache.reset(ways);
++    assert_eq!(cache.probe::<WAYS>(0, 0), None);
++    cache.store::<WAYS>(0, 1, 0);
++    assert_eq!(cache.probe::<WAYS>(0, 1), Some(0));
++    assert_eq!(cache.probe::<WAYS>(0, 2), None);
++    assert_eq!(cache.probe::<WAYS>(1 << 40, 1), None);
++    cache.store::<WAYS>(0, 1, 42);
++    assert_eq!(cache.probe::<WAYS>(0, 1), Some(42));
++    assert_eq!(
++        cache
++            .entries
++            .iter()
++            .filter(|entry| entry.depth != 0)
++            .count(),
++        1
++    );
++    cache.store::<WAYS>(0, 2, 100);
++    assert_eq!(cache.probe::<WAYS>(0, 2), Some(100));
++    assert_eq!(
++        cache.probe::<WAYS>(0, 1),
++        if WAYS == 1 { None } else { Some(42) }
++    );
++    cache.clear();
++    assert_eq!(cache.probe::<WAYS>(0, 1), None);
++    assert_eq!(cache.probe::<WAYS>(0, 2), None);
++}
++
++#[test]
++fn all_ways_require_full_key_and_exact_depth_and_accept_zero_counts() {
++    check_keys_and_depth::<1>(Associativity::One);
++    check_keys_and_depth::<2>(Associativity::Two);
++    check_keys_and_depth::<4>(Associativity::Four);
++}
++
++fn check_replacement<const WAYS: usize>(ways: Associativity) {
++    let mut cache = Cache::new(WAYS * 2);
++    cache.reset(ways);
++    // Even keys contend for bucket zero; odd keys occupy a separate bucket.
++    cache.store::<WAYS>(1, 1, 99);
++    for i in 0..WAYS {
++        cache.store::<WAYS>((i * 2) as u64, 2, i as u64);
++    }
++    for i in 0..WAYS {
++        assert_eq!(cache.probe::<WAYS>((i * 2) as u64, 2), Some(i as u64));
++    }
++    // All depths tie, so a new key replaces the first entry only.
++    cache.store::<WAYS>(100, 1, 1000);
++    assert_eq!(cache.probe::<WAYS>(0, 2), None);
++    assert_eq!(cache.probe::<WAYS>(100, 1), Some(1000));
++    // The shallower entry is next to go, for another equally shallow result.
++    cache.store::<WAYS>(102, 1, 2000);
++    assert_eq!(cache.probe::<WAYS>(100, 1), None);
++    for i in 1..WAYS {
++        assert_eq!(cache.probe::<WAYS>((i * 2) as u64, 2), Some(i as u64));
++    }
++    assert_eq!(cache.probe::<WAYS>(1, 1), Some(99));
++
++    // Also place the unique shallowest result at the end of a full bucket.
++    cache.clear();
++    for i in 0..WAYS {
++        cache.store::<WAYS>((i * 2) as u64, (WAYS - i) as u8, i as u64);
++    }
++    cache.store::<WAYS>(100, 1, 42);
++    assert_eq!(cache.probe::<WAYS>(((WAYS - 1) * 2) as u64, 1), None);
++    for i in 0..WAYS - 1 {
++        assert_eq!(
++            cache.probe::<WAYS>((i * 2) as u64, (WAYS - i) as u8),
++            Some(i as u64)
++        );
++    }
++}
++
++#[test]
++fn contested_buckets_fill_then_replace_shallowest_with_deterministic_ties() {
++    check_replacement::<1>(Associativity::One);
++    check_replacement::<2>(Associativity::Two);
++    check_replacement::<4>(Associativity::Four);
++}
++
++#[test]
++fn updating_an_existing_deeper_entry_does_not_evict_a_shallower_neighbor() {
++    let mut cache = Cache::new(4);
++    cache.reset(Associativity::Four);
++    cache.store::<4>(1, 1, 10);
++    cache.store::<4>(2, 4, 20);
++    cache.store::<4>(2, 4, 30);
++    assert_eq!(cache.probe::<4>(1, 1), Some(10));
++    assert_eq!(cache.probe::<4>(2, 4), Some(30));
++    assert_eq!(
++        cache
++            .entries
++            .iter()
++            .filter(|entry| entry.depth != 0)
++            .count(),
++        2
++    );
++}
++
++#[test]
++#[should_panic]
++fn reset_rejects_more_ways_than_entries() {
++    Cache::new(2).reset(Associativity::Four);
++}
+diff --git a/crates/penteconter/src/perft/experiments/hash_traversal/mod.rs b/crates/penteconter/src/perft/experiments/hash_traversal/mod.rs
+--- a/crates/penteconter/src/perft/experiments/hash_traversal/mod.rs
++++ b/crates/penteconter/src/perft/experiments/hash_traversal/mod.rs
+@@ -3,6 +3,9 @@
+ 
+ use crate::perft::LeafMode;
+ use crate::{Move, MoveKind, Position, Square};
++
++mod cache;
++pub use cache::{Associativity, Cache};
+ 
+ #[cfg(test)]
+ mod tests;
+@@ -13,57 +16,6 @@
+     Eager,
+     /// Check candidate placements only; hash accepted traversal children normally.
+     PlacementOnly,
+-}
+-
+-// Two entries per 64-byte line. Depth zero marks an empty slot; it is never
+-// cached. The full 64-bit key and exact remaining depth must both match.
+-#[repr(C, align(32))]
+-#[derive(Clone, Copy, Default)]
+-struct Entry {
+-    key: u64,
+-    nodes: u64,
+-    depth: u8,
+-}
+-
+-/// Bounded, direct-mapped, always-replace perft cache. This is a probabilistic
+-/// experiment: full-key Zobrist collisions are NOT resolved by state comparison.
+-/// It ignores draw rules and is not a search transposition table.
+-pub struct Cache {
+-    entries: Vec<Entry>,
+-}
+-
+-impl Cache {
+-    /// `entries` must be a nonzero power of two; each slot occupies 32 bytes.
+-    pub fn new(entries: usize) -> Self {
+-        assert!(entries.is_power_of_two());
+-        Self {
+-            entries: vec![Entry::default(); entries],
+-        }
+-    }
+-
+-    pub fn bytes(&self) -> usize {
+-        self.entries.len() * size_of::<Entry>()
+-    }
+-
+-    /// Empty the table before each traversal; the harness times this separately.
+-    pub fn clear(&mut self) {
+-        self.entries.fill(Entry::default());
+-    }
+-
+-    fn slot(&self, key: u64) -> usize {
+-        key as usize & (self.entries.len() - 1)
+-    }
+-
+-    fn probe(&self, key: u64, depth: u8) -> Option<u64> {
+-        let entry = self.entries[self.slot(key)];
+-        (entry.depth != 0 && entry.key == key && entry.depth == depth).then_some(entry.nodes)
+-    }
+-
+-    fn store(&mut self, key: u64, depth: u8, nodes: u64) {
+-        debug_assert_ne!(depth, 0);
+-        let slot = self.slot(key);
+-        self.entries[slot] = Entry { key, nodes, depth };
+-    }
+ }
+ 
+ #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+@@ -89,10 +41,35 @@
+ /// cache may be reused across modes: both count the same leaves. Move buffers
+ /// are allocated here, matching the uncached baseline's lifetime.
+ ///
+-/// Instrumentation is compiled out of the timed specialization. Cache and
+-/// legality selection also dispatch once, outside the recursive traversal.
++/// Instrumentation is compiled out of the timed specialization. Cache,
++/// legality, and associativity selection dispatch outside recursive traversal.
+ /// Complete final positions pass through `black_box` in Apply mode.
+ pub fn run(
++    position: &Position,
++    depth: u8,
++    mode: LeafMode,
++    legality: Legality,
++    cache: Option<&mut Cache>,
++    instrument: bool,
++) -> Result {
++    match cache
++        .as_ref()
++        .map(|cache| cache.associativity())
++        .unwrap_or(Associativity::One)
++    {
++        Associativity::One => {
++            run_with_ways::<1>(position, depth, mode, legality, cache, instrument)
++        }
++        Associativity::Two => {
++            run_with_ways::<2>(position, depth, mode, legality, cache, instrument)
++        }
++        Associativity::Four => {
++            run_with_ways::<4>(position, depth, mode, legality, cache, instrument)
++        }
++    }
++}
++
++fn run_with_ways<const WAYS: usize>(
+     position: &Position,
+     depth: u8,
+     mode: LeafMode,
+@@ -102,33 +79,33 @@
+ ) -> Result {
+     match (legality, cache.is_some(), instrument) {
+         (Legality::Eager, false, false) => {
+-            traverse::<false, false, false>(position, depth, mode, cache)
++            traverse::<false, false, false, WAYS>(position, depth, mode, cache)
+         }
+         (Legality::Eager, false, true) => {
+-            traverse::<false, false, true>(position, depth, mode, cache)
++            traverse::<false, false, true, WAYS>(position, depth, mode, cache)
+         }
+         (Legality::Eager, true, false) => {
+-            traverse::<false, true, false>(position, depth, mode, cache)
++            traverse::<false, true, false, WAYS>(position, depth, mode, cache)
+         }
+         (Legality::Eager, true, true) => {
+-            traverse::<false, true, true>(position, depth, mode, cache)
++            traverse::<false, true, true, WAYS>(position, depth, mode, cache)
+         }
+         (Legality::PlacementOnly, false, false) => {
+-            traverse::<true, false, false>(position, depth, mode, cache)
++            traverse::<true, false, false, WAYS>(position, depth, mode, cache)
+         }
+         (Legality::PlacementOnly, false, true) => {
+-            traverse::<true, false, true>(position, depth, mode, cache)
++            traverse::<true, false, true, WAYS>(position, depth, mode, cache)
+         }
+         (Legality::PlacementOnly, true, false) => {
+-            traverse::<true, true, false>(position, depth, mode, cache)
++            traverse::<true, true, false, WAYS>(position, depth, mode, cache)
+         }
+         (Legality::PlacementOnly, true, true) => {
+-            traverse::<true, true, true>(position, depth, mode, cache)
+-        }
+-    }
+-}
+-
+-fn traverse<const PLACEMENT: bool, const CACHED: bool, const TRACK: bool>(
++            traverse::<true, true, true, WAYS>(position, depth, mode, cache)
++        }
++    }
++}
++
++fn traverse<const PLACEMENT: bool, const CACHED: bool, const TRACK: bool, const WAYS: usize>(
+     position: &Position,
+     depth: u8,
+     mode: LeafMode,
+@@ -140,12 +117,17 @@
+     } else {
+         Vec::new()
+     };
+-    let nodes =
+-        visit::<PLACEMENT, CACHED, TRACK>(position, &mut buffers, mode, &mut cache, &mut by_depth);
++    let nodes = visit::<PLACEMENT, CACHED, TRACK, WAYS>(
++        position,
++        &mut buffers,
++        mode,
++        &mut cache,
++        &mut by_depth,
++    );
+     Result { nodes, by_depth }
+ }
+ 
+-fn visit<const PLACEMENT: bool, const CACHED: bool, const TRACK: bool>(
++fn visit<const PLACEMENT: bool, const CACHED: bool, const TRACK: bool, const WAYS: usize>(
+     position: &Position,
+     buffers: &mut [Vec<Move>],
+     mode: LeafMode,
+@@ -163,7 +145,7 @@
+         && let Some(count) = cache
+             .as_ref()
+             .unwrap()
+-            .probe(position.zobrist_key(), depth as u8)
++            .probe::<WAYS>(position.zobrist_key(), depth as u8)
+     {
+         if TRACK {
+             stats[depth].hits += 1;
+@@ -195,7 +177,7 @@
+                 }
+                 1
+             } else {
+-                visit::<PLACEMENT, CACHED, TRACK>(&child, remaining, mode, cache, stats)
++                visit::<PLACEMENT, CACHED, TRACK, WAYS>(&child, remaining, mode, cache, stats)
+             };
+             nodes = nodes.checked_add(count).expect("perft node count overflow");
+         }
+@@ -204,7 +186,7 @@
+         cache
+             .as_mut()
+             .unwrap()
+-            .store(position.zobrist_key(), depth as u8, nodes);
++            .store::<WAYS>(position.zobrist_key(), depth as u8, nodes);
+     }
+     nodes
+ }
+diff --git a/crates/penteconter/src/perft/experiments/hash_traversal/tests.rs b/crates/penteconter/src/perft/experiments/hash_traversal/tests.rs
+--- a/crates/penteconter/src/perft/experiments/hash_traversal/tests.rs
++++ b/crates/penteconter/src/perft/experiments/hash_traversal/tests.rs
+@@ -67,16 +67,16 @@
+ fn cache_requires_full_key_and_exact_depth_and_replaces_conflicts() {
+     let mut cache = Cache::new(1);
+     assert_eq!(cache.bytes(), 32);
+-    assert_eq!(cache.probe(0, 0), None);
+-    cache.store(0, 1, 0); // Zero key and terminal zero count are both valid.
+-    assert_eq!(cache.probe(0, 1), Some(0));
+-    assert_eq!(cache.probe(0, 2), None);
+-    assert_eq!(cache.probe(1 << 40, 1), None);
+-    cache.store(1 << 40, 1, 42);
+-    assert_eq!(cache.probe(0, 1), None);
+-    assert_eq!(cache.probe(1 << 40, 1), Some(42));
++    assert_eq!(cache.probe::<1>(0, 0), None);
++    cache.store::<1>(0, 1, 0); // Zero key and terminal zero count are both valid.
++    assert_eq!(cache.probe::<1>(0, 1), Some(0));
++    assert_eq!(cache.probe::<1>(0, 2), None);
++    assert_eq!(cache.probe::<1>(1 << 40, 1), None);
++    cache.store::<1>(1 << 40, 1, 42);
++    assert_eq!(cache.probe::<1>(0, 1), None);
++    assert_eq!(cache.probe::<1>(1 << 40, 1), Some(42));
+     cache.clear();
+-    assert_eq!(cache.probe(1 << 40, 1), None);
++    assert_eq!(cache.probe::<1>(1 << 40, 1), None);
+ }
+ 
+ #[test]
+@@ -88,20 +88,24 @@
+                 let plain = run(&position, depth, mode, legality, None, true);
+                 assert_eq!(plain.nodes, expected);
+                 check_stats(&plain, depth, mode, false);
+-                for capacity in [1, 1024] {
+-                    let mut cache = Cache::new(capacity);
+-                    let result = run(&position, depth, mode, legality, Some(&mut cache), true);
+-                    assert_eq!(result.nodes, expected);
+-                    check_stats(&result, depth, mode, true);
+-                    // Repeat without clearing: the stored root must be a hit.
+-                    let warm = run(&position, depth, mode, legality, Some(&mut cache), true);
+-                    assert_eq!(warm.nodes, expected);
+-                    assert_eq!(warm.by_depth[depth as usize].hits, 1);
+-                    assert_eq!(warm.by_depth.iter().map(|s| s.expanded).sum::<u64>(), 0);
+-                    cache.clear();
+-                    let untracked = run(&position, depth, mode, legality, Some(&mut cache), false);
+-                    assert_eq!(untracked.nodes, expected);
+-                    assert!(untracked.by_depth.is_empty());
++                for ways in [Associativity::One, Associativity::Two, Associativity::Four] {
++                    for capacity in [ways.ways(), 1024] {
++                        let mut cache = Cache::new(capacity);
++                        cache.reset(ways);
++                        let result = run(&position, depth, mode, legality, Some(&mut cache), true);
++                        assert_eq!(result.nodes, expected);
++                        check_stats(&result, depth, mode, true);
++                        // Repeat without clearing: the stored root must be a hit.
++                        let warm = run(&position, depth, mode, legality, Some(&mut cache), true);
++                        assert_eq!(warm.nodes, expected);
++                        assert_eq!(warm.by_depth[depth as usize].hits, 1);
++                        assert_eq!(warm.by_depth.iter().map(|s| s.expanded).sum::<u64>(), 0);
++                        cache.clear();
++                        let untracked =
++                            run(&position, depth, mode, legality, Some(&mut cache), false);
++                        assert_eq!(untracked.nodes, expected);
++                        assert!(untracked.by_depth.is_empty());
++                    }
+                 }
+             }
+         }

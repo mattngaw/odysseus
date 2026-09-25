@@ -1,0 +1,2 @@
+# Isolate this tunnel from any existing cloudflared configuration.
+{}

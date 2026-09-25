@@ -1,0 +1,107 @@
+:root {
+      --pp-bg: light-dark(#ffffff, #101010);
+      --pp-fg: light-dark(#151515, #e6e6e6);
+      --pp-muted: light-dark(#686868, #9c9c9c);
+      --pp-line: light-dark(#d7d7d7, #353535);
+      --pp-grid: light-dark(#ededed, #242424);
+      --pp-soft: light-dark(#f5f5f5, #191919);
+      --pp-accent: light-dark(#966300, #e5b85c);
+      color: var(--pp-fg); background: var(--pp-bg);
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums; color-scheme: light dark;
+      width: 100%; min-width: 0; text-align: left;
+    }
+    #periplous-hardware *, #periplous-hardware *::before, #periplous-hardware *::after { box-sizing: border-box; }
+    #periplous-hardware [hidden] { display: none !important; }
+    #periplous-hardware header { padding: 20px 24px 16px; border-bottom: 1px solid var(--pp-line); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    #periplous-hardware .pp-identity { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    #periplous-hardware .pp-name { font-weight: 500; letter-spacing: .13em; }
+    #periplous-hardware .pp-muted { color: var(--pp-muted); }
+    #periplous-hardware .pp-small { font-size: 11px; }
+    #periplous-hardware .pp-tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    #periplous-hardware button { font: inherit; color: var(--pp-fg); background: transparent; border: 0; border-radius: 0; padding: 4px 0; }
+    #periplous-hardware button:hover { text-decoration: underline; text-underline-offset: 4px; }
+    #periplous-hardware .pp-body { padding: 0 24px 24px; }
+    #periplous-hardware .pp-nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--pp-line); margin-bottom: 20px; flex-wrap: wrap; }
+    #periplous-hardware .pp-tab { display: inline-block; padding: 12px 0 10px; border-bottom: 2px solid var(--pp-fg); font-weight: 500; }
+    #periplous-hardware .pp-host { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 0 0 20px; border-bottom: 1px solid var(--pp-line); }
+    #periplous-hardware .pp-host-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    #periplous-hardware .pp-host-detail { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; gap: 8px; flex-wrap: wrap; }
+    #periplous-hardware .pp-ascii { letter-spacing: .01em; white-space: pre; }
+    #periplous-hardware .pp-ascii .pp-unused { color: var(--pp-line); }
+    #periplous-hardware .pp-gpus { display: grid; grid-template-columns: 1fr 1fr; }
+    #periplous-hardware .pp-gpu { min-width: 0; padding: 20px 20px 0 0; }
+    #periplous-hardware .pp-gpu + .pp-gpu { border-left: 1px solid var(--pp-line); padding-left: 20px; padding-right: 0; }
+    #periplous-hardware h2 { margin: 0; font-size: 13px; font-weight: 500; }
+    #periplous-hardware .pp-gpu-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+    #periplous-hardware .pp-gpu-heading .pp-model { font-size: 11px; color: var(--pp-muted); }
+    #periplous-hardware .pp-gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    #periplous-hardware .pp-gauge-label { display: flex; justify-content: space-between; gap: 8px; color: var(--pp-muted); font-size: 11px; }
+    #periplous-hardware .pp-gauge-number { font-size: 20px; font-weight: 400; line-height: 1.6; color: var(--pp-fg); }
+    #periplous-hardware .pp-gauge-number small { font: inherit; font-size: 11px; color: var(--pp-muted); }
+    #periplous-hardware .pp-meter { height: 4px; background: var(--pp-grid); }
+    #periplous-hardware .pp-meter > span { display: block; height: 100%; background: var(--pp-fg); }
+    #periplous-hardware .pp-util > span { background: var(--pp-accent); }
+    #periplous-hardware .pp-chart-label { display: flex; justify-content: space-between; gap: 10px; margin: 19px 0 0; font-size: 11px; color: var(--pp-muted); }
+    #periplous-hardware .pp-legend { display: flex; gap: 12px; }
+    #periplous-hardware .pp-swatch { color: var(--pp-accent); font-weight: 500; }
+    #periplous-hardware .pp-chart { width: 100%; height: 153px; display: block; overflow: visible; touch-action: pan-y; }
+    #periplous-hardware .pp-chart text { fill: var(--pp-muted); font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    #periplous-hardware .pp-chart .pp-gridline { stroke: var(--pp-grid); stroke-width: 1; }
+    #periplous-hardware .pp-chart .pp-gpu-line { stroke: var(--pp-accent); stroke-width: 1.5; fill: none; }
+    #periplous-hardware .pp-chart .pp-vram-line { stroke: var(--pp-fg); stroke-width: 1; stroke-dasharray: 2 3; fill: none; }
+    #periplous-hardware .pp-chart .pp-guide { stroke: var(--pp-muted); stroke-width: 1; stroke-dasharray: 2 3; }
+    #periplous-hardware .pp-chart .pp-dot { fill: var(--pp-accent); }
+    #periplous-hardware .pp-readout { min-height: 20px; color: var(--pp-muted); font-size: 11px; margin-bottom: 14px; }
+    #periplous-hardware .pp-specs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px 8px; padding: 13px 0 18px; border-top: 1px solid var(--pp-grid); }
+    #periplous-hardware .pp-specs dt { color: var(--pp-muted); font-size: 11px; margin: 0 0 3px; }
+    #periplous-hardware .pp-specs dd { margin: 0; }
+    #periplous-hardware .pp-processes { border-top: 1px solid var(--pp-line); padding-top: 18px; }
+    #periplous-hardware .pp-process-title { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-bottom: 10px; }
+    #periplous-hardware table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    #periplous-hardware th { font-weight: 400; color: var(--pp-muted); font-size: 11px; }
+    #periplous-hardware th, #periplous-hardware td { padding: 8px 10px 8px 0; text-align: left; border-bottom: 1px solid var(--pp-grid); }
+    #periplous-hardware th:last-child, #periplous-hardware td:last-child { padding-right: 0; text-align: right; }
+    #periplous-hardware footer { margin-top: 19px; color: var(--pp-muted); font-size: 11px; display: flex; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+    #periplous-hardware[data-density="roomy"] .pp-host { padding-bottom: 28px; }
+    #periplous-hardware[data-density="roomy"] .pp-gpu { padding-top: 28px; }
+    #periplous-hardware[data-density="roomy"] .pp-specs { padding-top: 20px; padding-bottom: 24px; }
+    #periplous-hardware[data-density="roomy"] th, #periplous-hardware[data-density="roomy"] td { padding-top: 12px; padding-bottom: 12px; }
+    @media (max-width: 680px) {
+      #periplous-hardware header { padding: 16px; }
+      #periplous-hardware .pp-body { padding: 0 16px 18px; }
+      #periplous-hardware .pp-host { gap: 16px; }
+      #periplous-hardware .pp-gpus { grid-template-columns: 1fr; }
+      #periplous-hardware .pp-gpu { padding-right: 0; }
+      #periplous-hardware .pp-gpu + .pp-gpu { border-left: 0; border-top: 1px solid var(--pp-line); padding-left: 0; }
+    }
+    @media (max-width: 430px) {
+      #periplous-hardware .pp-host { grid-template-columns: 1fr; }
+      #periplous-hardware .pp-tools { gap: 12px; }
+      #periplous-hardware .pp-model { letter-spacing: -.02em; }
+      #periplous-hardware .pp-nav { gap: 8px; }
+      #periplous-hardware .pp-process-title { flex-wrap: wrap; gap: 4px; }
+    }
+    @media (pointer: coarse) { #periplous-hardware button { min-height: 44px; } }
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+html, body { margin: 0; min-height: 100%; background: var(--pp-bg); }
+#periplous-hardware { max-width: 1280px; margin: 0 auto; min-height: 100vh; }
+#periplous-hardware .pp-name { font-size: 14px; }
+#periplous-hardware [hidden] { display: none !important; }
+#periplous-hardware .pp-specs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#periplous-hardware .pp-specs dd { font-size: 12px; overflow-wrap: anywhere; }
+#periplous-hardware .pp-gauge-number { font-size: clamp(17px, 2vw, 22px); }
+#periplous-hardware td { overflow-wrap: anywhere; }
+#periplous-hardware td:nth-child(3) { max-width: 200px; }
+#periplous-hardware .pp-stale { opacity: .75; }
+#periplous-hardware.pp-stale .pp-host, #periplous-hardware.pp-stale .pp-gpus, #periplous-hardware.pp-stale .pp-processes { opacity: .6; }
+#periplous-hardware #connection { color: var(--pp-accent); }
+#periplous-hardware .pp-readout { min-height: 32px; }
+#periplous-hardware .pp-gpus { gap: 0; }
+#periplous-hardware .pp-gpu:nth-child(odd) { border-left: 0; padding-left: 0; padding-right: 20px; }
+@media (max-width: 680px) {
+  #periplous-hardware .pp-gpu:nth-child(odd) { padding-right: 0; }
+  #periplous-hardware .pp-gpu + .pp-gpu { border-left: 0; }
+}

@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""Root-owned prod release control. The dashboard identity can only use launch/read operations."""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+loader = importlib.machinery.SourceFileLoader("periplous_release", str(Path(__file__).with_name("periplousctl")))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+release = importlib.util.module_from_spec(spec)
+loader.exec_module(release)
+ROOT = Path("/var/lib/periplous")
+SOCKET = "periplous-prod.socket"
+SERVICE = "periplous-prod.service"
+TUNNEL = "periplous-tunnel.service"
+
+
+def system(*args, check=True, capture=False):
+    return subprocess.run(["systemctl", *args], check=check, capture_output=capture, text=True)
+
+
+def prod_unit(environment):
+    if environment != "prod":
+        raise ValueError("System controller only manages prod.")
+    return SERVICE
+
+
+def manager():
+    return release.Manager(ROOT, control=system, unit_name=prod_unit, public_state=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    promote = commands.add_parser("promote")
+    promote.add_argument("package", type=Path)
+    initialize = commands.add_parser("bootstrap")
+    initialize.add_argument("package", type=Path)
+    for name in ("launch", "status", "logs", "rollback", "recover", "start", "stop", "restart", "enable", "disable"):
+        commands.add_parser(name)
+    tunnel = commands.add_parser("tunnel")
+    tunnel.add_argument("action", choices=("start", "stop", "status", "logs", "url"))
+    args = parser.parse_args()
+    readonly = args.command in ("launch", "status", "logs") or (args.command == "tunnel" and args.action in ("status", "logs", "url"))
+    if not readonly and os.geteuid() != 0:
+        raise RuntimeError("Run this operation with sudo; prod state is owned by root.")
+    os.umask(0o077)
+    control = manager()
+    if args.command == "launch":
+        control.launch("prod")
+        return
+    if args.command == "status":
+        print(json.dumps({"state": control.state("prod"), "config": control.config("prod")}, indent=2), flush=True)
+        system("status", SOCKET, SERVICE, "--no-pager", check=False)
+        system("is-active", TUNNEL, check=False)
+        return
+    if args.command == "logs" or (args.command == "tunnel" and args.action == "logs"):
+        unit = TUNNEL if args.command == "tunnel" else SERVICE
+        subprocess.run(["journalctl", f"--unit={unit}", "--lines=80", "--no-pager"], check=True)
+        return
+    if args.command == "tunnel" and args.action in ("status", "url"):
+        if args.action == "status":
+            system("status", TUNNEL, "--no-pager", check=False)
+        else:
+            if system("is-active", "--quiet", TUNNEL, check=False).returncode:
+                raise RuntimeError("No active Quick Tunnel.")
+            invocation = system("show", TUNNEL, "--property=InvocationID", "--value", capture=True).stdout.strip()
+            if not invocation:
+                raise RuntimeError("No current tunnel invocation.")
+            log = subprocess.check_output(["journalctl", f"_SYSTEMD_INVOCATION_ID={invocation}", "--no-pager", "--output=cat"], text=True)
+            urls = re.findall(r"https://[a-z0-9-]+\.trycloudflare\.com", log)
+            if not urls:
+                raise RuntimeError("No URL yet; inspect tunnel logs.")
+            print(urls[-1])
+        return
+    with control.locked():
+        if args.command in ("promote", "rollback"):
+            for unit in (SOCKET, SERVICE):
+                if system("is-active", "--quiet", unit, check=False).returncode:
+                    raise RuntimeError("Start prod before promoting or rolling back a release.")
+        if args.command == "promote":
+            current = control.clean_state("prod")
+            if current["current"] is None:
+                raise ValueError("Bootstrap prod with the system installer first.")
+            staged = control.stage(args.package)
+            control.switch("prod", staged)
+        elif args.command == "bootstrap":
+            staged = control.stage(args.package)
+            control.bootstrap("prod", staged)
+        elif args.command == "rollback":
+            control.rollback("prod")
+        elif args.command == "recover":
+            control.recover("prod")
+        elif args.command in ("start", "restart"):
+            state = control.clean_state("prod")
+            control.release(state["current"])
+            system("reset-failed", SOCKET, SERVICE, check=False, capture=True)
+            system("start", SOCKET)
+            system(args.command, SERVICE)
+            print(control.ready("prod", state["current"]))
+        elif args.command == "stop":
+            system("stop", TUNNEL, SOCKET, SERVICE)
+        elif args.command in ("enable", "disable"):
+            system(args.command, SOCKET)
+        elif args.command == "tunnel":
+            if args.action == "start":
+                state = control.clean_state("prod")
+                system("start", SOCKET, SERVICE)
+                control.ready("prod", state["current"])
+                system("reset-failed", TUNNEL, check=False, capture=True)
+            system(args.action, TUNNEL)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
+        print(f"prodctl: {error}", file=sys.stderr)
+        sys.exit(1)

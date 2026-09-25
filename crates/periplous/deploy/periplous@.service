@@ -1,0 +1,21 @@
+# Managed by crates/periplous/deploy/install.sh
+[Unit]
+Description=Odysseus hardware dashboard / %i (Periplous)
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+[Service]
+Type=exec
+ExecStart="%h/.local/bin/periplousctl" launch %i
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+NoNewPrivileges=yes
+UMask=0077
+ProtectSystem=strict
+ProtectHome=read-only
+MemoryMax=256M
+TasksMax=32
+
+[Install]
+WantedBy=default.target

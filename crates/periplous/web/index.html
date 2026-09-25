@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Odysseus / skylake</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+<main id="periplous-hardware">
+  <header>
+    <div class="pp-identity"><span class="pp-name">ODYSSEUS</span><span class="pp-muted">/ skylake</span><span id="deployment" class="pp-small pp-muted"></span></div>
+    <div class="pp-tools"><span id="connection" class="pp-small pp-muted" role="status">CONNECTING</span><button type="button" id="theme" aria-label="Switch appearance">[ theme ]</button></div>
+  </header>
+  <div class="pp-body">
+    <div class="pp-nav"><span class="pp-tab">01 / hardware</span><span id="inventory" class="pp-small pp-muted">read-only</span></div>
+    <section class="pp-host" aria-label="Host CPU and RAM">
+      <div>
+        <div class="pp-host-title"><span>CPU</span><span id="cpu-value">—</span></div>
+        <div class="pp-host-detail"><span id="cpu-bar" class="pp-ascii" aria-hidden="true">[····················]</span><span id="cpu-detail" class="pp-small pp-muted">awaiting sample</span></div>
+      </div>
+      <div>
+        <div class="pp-host-title"><span>RAM</span><span id="ram-value">—</span></div>
+        <div class="pp-host-detail"><span id="ram-bar" class="pp-ascii" aria-hidden="true">[····················]</span><span id="ram-detail" class="pp-small pp-muted">awaiting sample</span></div>
+      </div>
+    </section>
+    <p id="gpu-message" class="pp-muted">Waiting for GPU readings…</p>
+    <div id="gpus" class="pp-gpus"></div>
+    <section class="pp-processes" aria-label="GPU processes">
+      <div class="pp-process-title"><h2>GPU processes <span id="process-count" class="pp-muted"></span></h2><span class="pp-muted pp-small">process names only</span></div>
+      <table aria-label="GPU processes and allocated VRAM">
+        <thead><tr><th scope="col">GPU</th><th scope="col">PID</th><th scope="col">PROCESS</th><th scope="col">VRAM</th></tr></thead>
+        <tbody id="processes"><tr><td colspan="4">Waiting for readings…</td></tr></tbody>
+      </table>
+      <p id="process-note" class="pp-small pp-muted" hidden>Some process readings are unavailable.</p>
+    </section>
+    <footer><span>Periplous / 1 s samples / 10 min history</span><span id="updated">Awaiting first sample</span></footer>
+    <p id="issues" class="pp-small pp-muted" hidden></p>
+    <noscript>JavaScript is required to display live hardware readings.</noscript>
+  </div>
+</main>
+<template id="gpu-template">
+  <section class="pp-gpu">
+    <div class="pp-gpu-heading"><h2 data-field="index"></h2><span class="pp-model" data-field="name"></span></div>
+    <div class="pp-gauges">
+      <div><div class="pp-gauge-label"><span>UTILIZATION</span><span>%</span></div><div class="pp-gauge-number" data-field="utilization"></div><div class="pp-meter pp-util"><span data-field="utilization-bar"></span></div></div>
+      <div><div class="pp-gauge-label"><span>VRAM</span><span>GiB</span></div><div class="pp-gauge-number" data-field="memory"></div><div class="pp-meter"><span data-field="memory-bar"></span></div></div>
+    </div>
+    <div class="pp-chart-label"><span>HISTORY / %</span><span class="pp-legend"><span><span class="pp-swatch">─</span> GPU</span><span>┄ VRAM</span></span></div>
+    <svg class="pp-chart" role="img"></svg>
+    <div class="pp-readout" data-field="readout"></div>
+    <dl class="pp-specs">
+      <div><dt>POWER</dt><dd data-field="power"></dd></div><div><dt>TEMP</dt><dd data-field="temperature"></dd></div><div><dt>SM CLOCK</dt><dd data-field="sm-clock"></dd></div>
+      <div><dt>PCIe RX</dt><dd data-field="pcie-receive"></dd></div><div><dt>PCIe TX</dt><dd data-field="pcie-send"></dd></div><div><dt>MEM CLOCK</dt><dd data-field="memory-clock"></dd></div>
+    </dl>
+  </section>
+</template>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Managed by crates/periplous/deploy/system/install-system.sh
+[Unit]
+Description=Odysseus prod listener (reserved across application restarts)
+
+[Socket]
+ListenStream=0.0.0.0:8765
+FileDescriptorName=http
+Service=periplous-prod.service
+Backlog=64
+NoDelay=yes
+
+[Install]
+WantedBy=sockets.target

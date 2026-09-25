@@ -1,0 +1,24 @@
+# Managed by crates/periplous/deploy/install.sh
+[Unit]
+ConditionPathExists=!/etc/periplous/system-prod
+Description=Odysseus optional public Cloudflare Quick Tunnel
+# Keep the tunnel alive across dashboard restarts, preserving its current URL.
+Wants=periplous@prod.service
+After=periplous@prod.service
+StartLimitIntervalSec=120
+StartLimitBurst=10
+
+[Service]
+Type=exec
+ExecStart="%h/.local/share/periplous/bin/cloudflared" tunnel --config "%h/.local/share/periplous/quick-tunnel.yml" --no-autoupdate --management-diagnostics=false --metrics 127.0.0.1:0 --url http://127.0.0.1:8765
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=40
+NoNewPrivileges=yes
+UMask=0077
+ProtectSystem=strict
+ProtectHome=read-only
+MemoryMax=256M
+TasksMax=64
+
+# Deliberately no [Install] section: public access is started explicitly.

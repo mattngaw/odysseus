@@ -1,0 +1,425 @@
+#!/usr/bin/env python3
+"""Local release/lifecycle control. Never exposed through the HTTP application."""
+
+import argparse
+from contextlib import contextmanager
+import fcntl
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
+
+ENVIRONMENTS = ("dev", "prod")
+TUNNEL = "periplous-tunnel.service"
+RELEASE = re.compile(r"r-[0-9a-f]{64}")
+
+
+def canonical(value):
+    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def digest(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def atomic_json(path, value, mode=0o600):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".state-", dir=path.parent)
+    try:
+        os.fchmod(fd, mode)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(canonical(value))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def read_json(path):
+    return json.loads(path.read_text())
+
+
+def source_hash(root):
+    # Everything that can affect this crate, including its embedded web assets and
+    # deployment tools. Other workspace crates are not Periplous dependencies.
+    files = [root / "Cargo.toml", root / "Cargo.lock"]
+    files += sorted(p for p in (root / "crates/periplous").rglob("*")
+                    if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc")
+    return hashlib.sha256(canonical({str(p.relative_to(root)): digest(p) for p in files})).hexdigest()
+
+
+def provenance(root):
+    result = {"source_sha256": source_hash(root), "git_commit": None, "git_dirty": None}
+    if (root / ".git").exists():
+        result["git_commit"] = subprocess.check_output(
+            ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+        result["git_dirty"] = bool(subprocess.check_output(
+            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"]))
+    return result
+
+
+def package(binary, root, provenance_path, destination):
+    source = read_json(provenance_path)
+    if source["source_sha256"] != source_hash(root):
+        raise ValueError("Source changed since provenance capture; rebuild from a fresh snapshot.")
+    manifest = {"schema_version": 1, "binary_sha256": digest(binary), **source}
+    release = "r-" + hashlib.sha256(canonical(manifest)).hexdigest()
+    destination.mkdir(parents=True, exist_ok=True)
+    folder = destination / release
+    if folder.exists():
+        verify(folder, release)
+    else:
+        with tempfile.TemporaryDirectory(prefix=".package-", dir=destination) as temporary:
+            staged = Path(temporary) / release
+            staged.mkdir()
+            shutil.copyfile(binary, staged / "periplous")
+            (staged / "periplous").chmod(0o555)
+            (staged / "manifest.json").write_bytes(canonical(manifest))
+            (staged / "manifest.json").chmod(0o444)
+            verify(staged, release)
+            staged.rename(folder)
+    return folder
+
+
+def verify(folder, release):
+    if not RELEASE.fullmatch(release):
+        raise ValueError("Invalid release ID.")
+    manifest = read_json(folder / "manifest.json")
+    if manifest.get("schema_version") != 1:
+        raise ValueError("Unsupported release schema.")
+    if "r-" + hashlib.sha256(canonical(manifest)).hexdigest() != release:
+        raise ValueError("Release manifest checksum mismatch.")
+    if digest(folder / "periplous") != manifest["binary_sha256"]:
+        raise ValueError("Release binary checksum mismatch.")
+    return manifest
+
+
+def unit(environment):
+    if environment not in ENVIRONMENTS:
+        raise ValueError("Unknown environment.")
+    return f"periplous@{environment}.service"
+
+
+def service(*args, check=True, capture=False):
+    return subprocess.run(["systemctl", "--user", *args], check=check,
+                          capture_output=capture, text=True)
+
+
+class Manager:
+    def __init__(self, root, control=service, unit_name=unit, public_state=False):
+        self.root = root
+        self.control = control
+        self.unit = unit_name
+        self.public_state = public_state
+
+    @contextmanager
+    def locked(self):
+        self.root.mkdir(parents=True, exist_ok=True)
+        with (self.root / "deployment.lock").open("a") as lock:
+            os.fchmod(lock.fileno(), 0o600)
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            yield
+
+    def path(self, environment, name):
+        self.unit(environment)
+        return self.root / "environments" / environment / name
+
+    def save_state(self, environment, state):
+        atomic_json(self.path(environment, "state.json"), state, mode=0o644 if self.public_state else 0o600)
+
+    def state(self, environment):
+        path = self.path(environment, "state.json")
+        state = read_json(path) if path.exists() else {"current": None, "previous": None}
+        for key in ("current", "previous"):
+            if state[key] is not None and not RELEASE.fullmatch(state[key]):
+                raise ValueError("Invalid release in environment state.")
+        return state
+
+    def config(self, environment):
+        config = read_json(self.path(environment, "config.json"))
+        ipaddress.IPv4Address(config["bind"])
+        if type(config["port"]) is not int or not 1 <= config["port"] <= 65535:
+            raise ValueError("Invalid port.")
+        return config
+
+    def release(self, release):
+        if not isinstance(release, str) or not RELEASE.fullmatch(release):
+            raise ValueError("Invalid or missing release ID.")
+        folder = self.root / "releases" / release
+        verify(folder, release)
+        return folder
+
+    def stage(self, package_path):
+        release = package_path.name
+        verify(package_path, release)
+        destination = self.root / "releases" / release
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            self.release(release)
+        else:
+            with tempfile.TemporaryDirectory(prefix=".stage-", dir=destination.parent) as temporary:
+                staged = Path(temporary) / release
+                staged.mkdir()
+                staged.chmod(0o755)
+                for name, mode in (("periplous", 0o555), ("manifest.json", 0o444)):
+                    shutil.copyfile(package_path / name, staged / name)
+                    (staged / name).chmod(mode)
+                verify(staged, release)
+                staged.rename(destination)
+        return release
+
+    def ready(self, environment, release):
+        binary = self.release(release) / "periplous"
+        config = self.config(environment)
+        host = "127.0.0.1" if config["bind"] == "0.0.0.0" else config["bind"]
+        origin = f"http://{host}:{config['port']}"
+        # Never send a local health request through the operator's HTTP proxy.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        for _ in range(40):
+            try:
+                pid = self.control("show", self.unit(environment), "--property=MainPID", "--value",
+                                   capture=True).stdout.strip()
+                if int(pid) > 0 and Path(f"/proc/{pid}/exe").resolve() == binary.resolve():
+                    request = urllib.request.Request(origin + "/api/hardware", method="HEAD")
+                    with opener.open(request, timeout=1) as response:
+                        if response.status == 200 and response.headers.get("x-periplous-stale") == "false":
+                            return origin
+            except (OSError, ValueError, subprocess.SubprocessError):
+                pass
+            time.sleep(0.25)
+        raise RuntimeError(f"{environment} did not become ready on {origin}; inspect its logs.")
+
+    def restart(self, environment):
+        # A template instance may not be loaded on its first deployment. The
+        # following restart is authoritative and still propagates every failure.
+        self.control("reset-failed", self.unit(environment), check=False, capture=True)
+        self.control("restart", self.unit(environment))
+
+    def clean_state(self, environment):
+        state = self.state(environment)
+        if "pending" in state:
+            raise RuntimeError(f"Interrupted deployment: run periplousctl recover {environment} first.")
+        return state
+
+    def switch(self, environment, release):
+        old = self.clean_state(environment)
+        self.release(release)
+        self.config(environment)
+        if old["current"] == release:
+            self.ready(environment, release)
+            return
+        was_active = self.control("is-active", "--quiet", self.unit(environment), check=False).returncode == 0
+        pending = {"current": release, "previous": old["previous"],
+                   "pending": {"state": old, "was_active": was_active}}
+        self.save_state(environment, pending)
+        try:
+            self.restart(environment)
+            self.ready(environment, release)
+        except Exception:
+            self.recover(environment)
+            raise
+        self.save_state(environment,
+                    {"current": release, "previous": old["current"]})
+
+    def recover(self, environment):
+        state = self.state(environment)
+        if "pending" not in state:
+            raise ValueError("No interrupted deployment to recover.")
+        pending = state["pending"]
+        old = pending["state"]
+        # Keep the journal until recovery succeeds, so another interruption is retryable.
+        restored = {**old, "pending": pending}
+        self.save_state(environment, restored)
+        if old["current"] and pending["was_active"]:
+            self.restart(environment)
+            self.ready(environment, old["current"])
+        else:
+            self.control("stop", self.unit(environment))
+        self.save_state(environment, old)
+
+    def promote(self):
+        release = self.clean_state("dev")["current"]
+        self.ready("dev", release)
+        self.switch("prod", release)
+
+    def rollback(self, environment):
+        previous = self.clean_state(environment)["previous"]
+        if previous is None:
+            raise ValueError("No previous release.")
+        self.switch(environment, previous)
+
+    def bootstrap(self, environment, release):
+        if self.clean_state(environment)["current"] is not None:
+            raise ValueError("Bootstrap requires an empty environment.")
+        if self.control("is-active", "--quiet", self.unit(environment), check=False).returncode == 0:
+            raise ValueError("Bootstrap requires a stopped service.")
+        self.release(release)
+        self.save_state(environment, {"current": release, "previous": None})
+
+    def launch(self, environment):
+        # Internal systemd entry point: no deployment lock (restart holds it).
+        state = self.state(environment)
+        binary = self.release(state["current"]) / "periplous"
+        config = self.config(environment)
+        env = {**os.environ, "PERIPLOUS_ENVIRONMENT": environment,
+               "PERIPLOUS_RELEASE": state["current"]}
+        if "allowed_hosts" in config:
+            env["PERIPLOUS_ALLOWED_HOSTS"] = ",".join(config["allowed_hosts"])
+        options = ["--systemd"] if config.get("socket_activation") else ["--bind", config["bind"], "--port", str(config["port"])]
+        os.execve(binary, [str(binary), "serve", *options], env)
+
+
+def tunnel_url():
+    if service("is-active", "--quiet", TUNNEL, check=False).returncode:
+        raise RuntimeError("No active Quick Tunnel URL.")
+    invocation = service("show", TUNNEL, "--property=InvocationID", "--value", capture=True).stdout.strip()
+    if not invocation:
+        raise RuntimeError("No current tunnel invocation.")
+    output = subprocess.check_output(["journalctl", "--user", f"_SYSTEMD_INVOCATION_ID={invocation}",
+                                      "--no-pager", "--output=cat"], text=True)
+    matches = re.findall(r"https://[a-z0-9-]+\.trycloudflare\.com", output)
+    if not matches:
+        raise RuntimeError("No URL published by the current tunnel invocation.")
+    return matches[-1]
+
+
+def parser():
+    result = argparse.ArgumentParser(description=__doc__)
+    commands = result.add_subparsers(dest="command", required=True)
+    capture = commands.add_parser("provenance", help="Capture source hash and Git provenance before building")
+    capture.add_argument("source", type=Path)
+    capture.add_argument("output", type=Path)
+    pack = commands.add_parser("package", help="Package a binary built from the captured source snapshot")
+    for name in ("binary", "source", "provenance", "destination"):
+        pack.add_argument(name, type=Path)
+    stage = commands.add_parser("stage", help="Verify and copy an immutable release, without starting it")
+    stage.add_argument("package", type=Path)
+    deploy = commands.add_parser("deploy", help="Deploy to dev, keeping prod unchanged")
+    deploy.add_argument("environment", choices=("dev",))
+    deploy.add_argument("release")
+    initial = commands.add_parser("bootstrap", help="Select the initial release in an empty, stopped environment")
+    initial.add_argument("environment", choices=ENVIRONMENTS)
+    initial.add_argument("release")
+    commands.add_parser("promote", help="Promote the running, healthy dev release to prod")
+    for name in ("rollback", "recover", "start", "stop", "restart", "status", "logs", "enable", "disable", "launch"):
+        command = commands.add_parser(name)
+        command.add_argument("environment", nargs="?", default="prod", choices=ENVIRONMENTS)
+    tunnel = commands.add_parser("tunnel", help="Explicit public access; never enabled at boot")
+    tunnel.add_argument("action", choices=("start", "stop", "status", "url", "logs"))
+    return result
+
+
+def main():
+    args = parser().parse_args()
+    if args.command == "provenance":
+        atomic_json(args.output, provenance(args.source))
+        return
+    if args.command == "package":
+        print(package(args.binary, args.source, args.provenance, args.destination))
+        return
+    if sys.platform != "linux":
+        raise RuntimeError("Service control requires Linux/systemd.")
+    manager = Manager(Path.home() / ".local/share/periplous")
+    environment = getattr(args, "environment", "prod")
+    system_helper = Path("/usr/local/libexec/periplous/prodctl")
+    if Path("/etc/periplous/system-prod").exists():
+        if args.command == "launch" and environment == "prod":
+            raise RuntimeError("Prod has migrated to periplous-prod.service; the user prod unit must remain disabled.")
+        if args.command == "promote":
+            with manager.locked():
+                release = manager.clean_state("dev")["current"]
+                manager.ready("dev", release)
+                subprocess.run(["sudo", str(system_helper), "promote", str(manager.release(release))], check=True)
+            return
+        if (args.command in ("rollback", "recover", "start", "stop", "restart", "status", "logs", "enable", "disable") and environment == "prod") or args.command == "tunnel":
+            forwarded = [args.command] + ([args.action] if args.command == "tunnel" else [])
+            readonly = args.command in ("status", "logs") or (args.command == "tunnel" and args.action in ("status", "logs", "url"))
+            subprocess.run(([ ] if readonly else ["sudo"]) + [str(system_helper), *forwarded], check=True)
+            return
+    if args.command == "launch":
+        manager.launch(environment)
+        return
+    if args.command in ("stage", "bootstrap", "deploy", "promote", "rollback", "recover"):
+        with manager.locked():
+            if args.command == "stage":
+                print(manager.stage(args.package))
+            elif args.command == "bootstrap":
+                manager.bootstrap(environment, args.release)
+            elif args.command == "deploy":
+                manager.switch(environment, args.release)
+            elif args.command == "promote":
+                manager.promote()
+            elif args.command == "rollback":
+                manager.rollback(environment)
+            else:
+                manager.recover(environment)
+        return
+    if args.command in ("start", "restart", "stop", "enable", "disable"):
+        with manager.locked():
+            if args.command in ("start", "restart"):
+                state = manager.clean_state(environment)
+                manager.release(state["current"])
+                service("reset-failed", unit(environment), check=False, capture=True)
+                service(args.command, unit(environment))
+                print(manager.ready(environment, state["current"]))
+            elif args.command == "stop":
+                if environment == "prod":
+                    service("stop", TUNNEL)
+                service("stop", unit(environment))
+            elif args.command == "enable":
+                user = subprocess.check_output(["id", "-un"], text=True).strip()
+                subprocess.run(["loginctl", "--no-ask-password", "enable-linger", user], check=True)
+                service("enable", unit(environment))
+            else:
+                service("disable", unit(environment))
+    elif args.command == "status":
+        print(json.dumps({"environment": environment, "state": manager.state(environment),
+                          "config": manager.config(environment)}, indent=2), flush=True)
+        service("status", unit(environment), "--no-pager", check=False)
+        service("is-active", TUNNEL, check=False)
+    elif args.command == "logs":
+        subprocess.run(["journalctl", "--user", f"--unit={unit(environment)}", "--lines=80", "--no-pager"], check=True)
+    elif args.command == "tunnel":
+        if args.action == "url":
+            print(tunnel_url())
+        elif args.action == "logs":
+            subprocess.run(["journalctl", "--user", f"--unit={TUNNEL}", "--lines=80", "--no-pager"], check=True)
+        elif args.action == "start":
+            with manager.locked():
+                state = manager.clean_state("prod")
+                service("reset-failed", unit("prod"), TUNNEL, check=False, capture=True)
+                service("start", unit("prod"))
+                manager.ready("prod", state["current"])
+                service("start", TUNNEL)
+            for _ in range(60):
+                try:
+                    print(tunnel_url())
+                    return
+                except RuntimeError:
+                    time.sleep(0.5)
+            raise RuntimeError("Tunnel URL unavailable; inspect periplousctl tunnel logs.")
+        else:
+            service(args.action, TUNNEL)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
+        print(f"periplousctl: {error}", file=sys.stderr)
+        sys.exit(1)
